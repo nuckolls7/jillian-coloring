@@ -55,6 +55,7 @@ const appState = {
   clientId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
   eventSource: null,
   online: false,
+  serverAvailable: null,
   syncing: false
 };
 
@@ -128,7 +129,7 @@ async function boot() {
   setRoom(getRoomFromLocation() || appState.room);
   buildPalette();
   bindControls();
-  loadHostInfo();
+  await loadHostInfo();
   routeFromHash();
   window.addEventListener("hashchange", routeFromHash);
   window.addEventListener("popstate", routeFromHash);
@@ -284,8 +285,11 @@ function showWorkspace(updateHash = false) {
 }
 
 async function joinHomeRoom() {
-  const nextRoom = normalizeRoom(els.homeRoomInput.value || els.roomInput.value || appState.room);
-  if (!nextRoom) return;
+  const nextRoom = normalizeRoom(els.homeRoomInput.value);
+  if (!nextRoom) {
+    showRoomMessage(els.homeJoinStatus, "Enter a room ID first.");
+    return;
+  }
   await joinExistingRoom(nextRoom, els.homeJoinStatus);
 }
 
@@ -293,7 +297,7 @@ async function applyCustomRoomId() {
   const nextRoom = normalizeRoom(els.customRoomInput.value) || createRoomCode();
   if (!nextRoom) return;
   setRoom(nextRoom);
-  await createRoom(nextRoom);
+  if (!(await createRoom(nextRoom, els.customUploadStatus))) return;
   els.customUploadStatus.textContent = `Room set to ${nextRoom}.`;
 }
 
@@ -307,7 +311,7 @@ async function applyWorkspaceRoomId() {
   const nextRoom = normalizeRoom(els.roomInput.value) || createRoomCode();
   if (!nextRoom) return;
   setRoom(nextRoom);
-  await createRoom(nextRoom);
+  if (!(await createRoom(nextRoom))) return;
   renderTemplate(appState.template);
   connectRoom(nextRoom);
   history.pushState(null, "", roomHash());
@@ -419,9 +423,10 @@ function currentRoomUploads() {
   return { [appState.template]: appState.uploads[appState.template] };
 }
 
-async function createRoom(room = appState.room) {
+async function createRoom(room = appState.room, statusEl = null) {
   const targetRoom = normalizeRoom(room);
   if (!targetRoom || location.protocol === "file:") return false;
+  if (!(await ensureCollaborationServer(statusEl))) return false;
 
   try {
     const response = await fetch("/room-create", {
@@ -436,7 +441,7 @@ async function createRoom(room = appState.room) {
     });
 
     if (!response.ok) {
-      setStatus("Room could not be created");
+      showCollaborationProblem(statusEl, "Room could not be created. Check that the site is deployed as a Web Service.");
       return false;
     }
 
@@ -444,6 +449,7 @@ async function createRoom(room = appState.room) {
     return true;
   } catch {
     setOnline(false, "Offline draft");
+    showCollaborationProblem(statusEl, "Collaboration server unavailable.");
     return false;
   }
 }
@@ -457,6 +463,7 @@ async function joinExistingRoom(room, statusEl = null, updateHash = true) {
   const targetRoom = normalizeRoom(room);
   if (!targetRoom) return false;
   showRoomMessage(statusEl, "");
+  if (!(await ensureCollaborationServer(statusEl))) return false;
 
   try {
     const response = await fetch(`/room-state?room=${encodeURIComponent(targetRoom)}`);
@@ -473,8 +480,8 @@ async function joinExistingRoom(room, statusEl = null, updateHash = true) {
     showWorkspace(updateHash);
     return true;
   } catch {
-    showRoomMessage(statusEl, "Could not check that room.");
     setOnline(false, "Offline draft");
+    showCollaborationProblem(statusEl, "Could not check that room.");
     return false;
   }
 }
@@ -495,6 +502,45 @@ function showInvalidRoom(room, statusEl = null) {
 
 function showRoomMessage(statusEl, text) {
   if (statusEl) statusEl.textContent = text;
+}
+
+async function ensureCollaborationServer(statusEl = null) {
+  if (location.protocol === "file:") {
+    showCollaborationProblem(statusEl, "Run the server to use rooms.");
+    return false;
+  }
+
+  if (appState.serverAvailable === true) return true;
+  appState.serverAvailable = await probeCollaborationServer();
+
+  if (!appState.serverAvailable) {
+    showCollaborationProblem(statusEl, "Collaboration server unavailable. On Render, deploy as a Web Service, not a Static Site.");
+    return false;
+  }
+
+  return true;
+}
+
+async function probeCollaborationServer() {
+  try {
+    const response = await fetch("/health", { cache: "no-store" });
+    if (!response.ok) return false;
+    const info = await response.json();
+    return Boolean(info && info.ok && info.collaboration);
+  } catch {
+    return false;
+  }
+}
+
+function showCollaborationProblem(statusEl, text) {
+  showRoomMessage(statusEl, text);
+  if (!statusEl && !els.workspaceView.hidden) setStatus(text);
+  if (!els.customView.hidden) els.customUploadStatus.textContent = text;
+  if (!els.homeView.hidden) {
+    els.homeJoinPanel.hidden = false;
+    els.homeJoinStatus.textContent = text;
+  }
+  setOnline(false, "Server unavailable");
 }
 
 async function saveCurrentWork() {
@@ -537,7 +583,15 @@ async function loadHostInfo() {
   appState.shareBaseUrl = fallback;
   updateShareLinks();
 
-  if (location.protocol === "file:" || !isLocalNetworkHost(location.hostname)) return;
+  if (location.protocol === "file:") return;
+
+  appState.serverAvailable = await probeCollaborationServer();
+  if (!appState.serverAvailable) {
+    showCollaborationProblem(null, "Collaboration server unavailable. On Render, deploy as a Web Service, not a Static Site.");
+    return;
+  }
+
+  if (!isLocalNetworkHost(location.hostname)) return;
 
   try {
     const response = await fetch("/host-info");
@@ -1045,6 +1099,11 @@ function queueUploadedProgressSnapshot() {
 function connectRoom(room) {
   if (appState.eventSource) appState.eventSource.close();
   setOnline(false, "Connecting...");
+
+  if (appState.serverAvailable === false) {
+    showCollaborationProblem(null, "Collaboration server unavailable.");
+    return;
+  }
 
   if (!window.EventSource || location.protocol === "file:") {
     setOnline(false, "Run the server for collaboration");

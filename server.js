@@ -29,6 +29,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/health") {
+    sendJson(res, {
+      ok: true,
+      app: "jillian-coloring",
+      collaboration: true
+    });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/host-info") {
     sendJson(res, {
       port,

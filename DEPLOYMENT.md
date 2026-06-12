@@ -18,6 +18,36 @@ This repo includes `package.json` and `render.yaml`, so Render can run the app a
 4. After the deploy finishes, open the `onrender.com` URL Render gives you.
 5. Share that public URL and the 5-character Room ID with friends.
 
+Important: choose **Web Service**, not **Static Site**. A static site can show the coloring page and uploads can still work in your browser, but room IDs and live collaboration will fail because the Node server is not running.
+
+## Quick Deployment Test
+
+After deploying, open these URLs with your real Render domain:
+
+```text
+https://your-site.onrender.com/health
+```
+
+It should show JSON like:
+
+```json
+{"ok":true,"app":"jillian-coloring","collaboration":true}
+```
+
+Then try:
+
+```text
+https://your-site.onrender.com/room-state?room=abc12
+```
+
+For a room that does not exist, it should show:
+
+```json
+{"error":"Room ID invalid"}
+```
+
+If either URL shows the normal website page, a 404 page, or plain text that is not JSON, the project was deployed as the wrong service type or the Node start command is not running.
+
 ## Custom Website Name
 
 To use a real domain like `jilliancoloring.com`:
