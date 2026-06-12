@@ -167,7 +167,11 @@ function bindControls() {
   });
   els.homeJoinBtn.addEventListener("click", () => {
     els.homeJoinPanel.hidden = !els.homeJoinPanel.hidden;
-    if (!els.homeJoinPanel.hidden) els.homeRoomInput.focus();
+    if (!els.homeJoinPanel.hidden) {
+      els.homeRoomInput.value = "";
+      els.homeJoinStatus.textContent = "";
+      els.homeRoomInput.focus();
+    }
   });
   els.homeJoinSubmit.addEventListener("click", joinHomeRoom);
   els.homeRoomInput.addEventListener("keydown", (event) => {
@@ -326,7 +330,6 @@ function setRoom(room) {
   const nextRoom = normalizeRoom(room) || createRoomCode();
   if (appState.room !== nextRoom) appState.roomCreated = false;
   appState.room = nextRoom;
-  els.homeRoomInput.value = nextRoom;
   els.roomInput.value = nextRoom;
   els.customRoomInput.value = nextRoom;
   els.roomName.textContent = nextRoom;
