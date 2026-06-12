@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jillian Coloring</title>
+    <link rel="stylesheet" href="styles.css?v=room-save-v2">
+  </head>
+  <body>
+    <section id="homeView" class="home-screen">
+      <header class="home-header">
+        <h1>Jillian Coloring</h1>
+      </header>
+      <div class="home-center">
+        <div class="home-actions">
+          <button id="homeCustomBtn" class="home-action" type="button">Custom</button>
+          <button id="homeJoinBtn" class="home-action" type="button">Join</button>
+          <select id="homeThemeSelect" class="home-action theme-menu" aria-label="Theme pages">
+            <option value="">Themes</option>
+            <option value="winter">Winter</option>
+            <option value="fall">Fall</option>
+            <option value="spring">Spring</option>
+            <option value="summer">Summer</option>
+          </select>
+        </div>
+        <div id="homeJoinPanel" class="home-join-panel" hidden>
+          <input id="homeRoomInput" type="text" maxlength="5" spellcheck="false" placeholder="a7k2p">
+          <button id="homeJoinSubmit" type="button">Enter Room</button>
+          <p id="homeJoinStatus" class="small-note home-join-status"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="customView" class="custom-screen" hidden>
+      <header class="theme-header">
+        <button id="customBackBtn" type="button">Back</button>
+        <h1>Custom</h1>
+      </header>
+      <div class="custom-layout">
+        <div class="custom-empty-canvas">
+          <span>Jillian Coloring</span>
+        </div>
+        <div class="custom-panel">
+          <label class="field-label" for="customRoomInput">Room ID</label>
+          <div class="room-row room-row-three">
+            <input id="customRoomInput" type="text" maxlength="5" spellcheck="false" value="a7k2p">
+            <button id="customJoinRoomBtn" type="button">Set</button>
+            <button id="customNewRoomBtn" type="button">New</button>
+          </div>
+          <div class="hidden-control">
+            <label class="field-label" for="customShareUrl">Share URL</label>
+            <input id="customShareUrl" type="text" readonly value="http://localhost:4173">
+            <button id="customCopyShareBtn" type="button">Copy</button>
+          </div>
+          <label class="field-label" for="customUploadPageInput">Upload Picture</label>
+          <button id="customUploadBtn" class="import-save wide" type="button">Choose Coloring Page</button>
+          <input id="customUploadPageInput" class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <p id="customUploadStatus" class="small-note">PNG, JPG, WebP, and SVG are supported.</p>
+          <label class="field-label" for="customColorPicker">Color</label>
+          <input id="customColorPicker" type="color" value="#f48fb1">
+          <div id="customPalette" class="palette" aria-label="Custom page palette"></div>
+          <button id="customHomeBtn" type="button">Home</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="themeView" class="theme-screen" hidden>
+      <header class="theme-header">
+        <button id="themeBackBtn" type="button">Back</button>
+        <h1 id="themeTitle">Winter</h1>
+      </header>
+      <div id="themeGrid" class="theme-grid"></div>
+    </section>
+
+    <main id="workspaceView" class="app-shell" hidden>
+      <aside class="side-panel">
+        <div class="brand">
+          <span class="brand-mark">JC</span>
+          <div>
+            <h1>Jillian Coloring</h1>
+            <p id="saveStatus">Ready</p>
+          </div>
+        </div>
+        <button id="workspaceHomeBtn" type="button">Home</button>
+
+        <section class="panel-section">
+          <label class="field-label" for="roomInput">Room ID</label>
+          <div class="room-row room-row-three">
+            <input id="roomInput" type="text" maxlength="5" spellcheck="false" value="a7k2p">
+            <button id="joinRoomBtn" type="button" title="Join room">Join</button>
+            <button id="newRoomBtn" type="button" title="New room">New</button>
+          </div>
+          <div class="presence">
+            <span id="connectionDot" class="dot"></span>
+            <span id="connectionText">Offline draft</span>
+          </div>
+        </section>
+
+        <section class="panel-section hidden-control">
+          <label class="field-label" for="shareUrl">Share URL</label>
+          <div class="room-row">
+            <input id="shareUrl" type="text" readonly value="http://localhost:4173">
+            <button id="copyShareBtn" type="button" title="Copy share link">Copy</button>
+          </div>
+          <p class="small-note">Use this link on devices connected to the same Wi-Fi.</p>
+        </section>
+
+        <section class="panel-section">
+          <label class="field-label" for="templateSelect">Template</label>
+          <select id="templateSelect">
+            <option value="cozy">Cozy Friends</option>
+            <option value="garden">Pocket Garden</option>
+            <option value="snack">Snack Table</option>
+          </select>
+        </section>
+
+        <section class="panel-section">
+          <label class="field-label" for="uploadPageInput">My Pages</label>
+          <label class="import-save wide" for="uploadPageInput">Upload Coloring Page</label>
+          <input id="uploadPageInput" class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <button id="deleteUploadBtn" class="danger" type="button">Delete Uploaded Page</button>
+          <p class="small-note">Uploaded image pages are saved in this browser.</p>
+        </section>
+
+        <section class="panel-section">
+          <div class="tool-grid" role="group" aria-label="Tools">
+            <button id="fillTool" class="tool active" type="button" title="Fill">Fill</button>
+            <button id="eraseTool" class="tool" type="button" title="Erase">Erase</button>
+            <button id="pickTool" class="tool" type="button" title="Pick color">Pick</button>
+            <button id="undoBtn" class="tool" type="button" title="Undo">Undo</button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <label class="field-label" for="colorPicker">Color</label>
+          <input id="colorPicker" type="color" value="#f48fb1">
+          <div id="palette" class="palette" aria-label="Palette"></div>
+        </section>
+
+        <section class="panel-section">
+          <label class="field-label">Progress</label>
+          <div class="progress-track">
+            <span id="progressBar"></span>
+          </div>
+          <p id="progressText" class="small-note">0% filled</p>
+        </section>
+
+        <section class="panel-section actions">
+          <button id="saveBtn" type="button">Save</button>
+          <button id="exportBtn" type="button">Download PNG</button>
+          <button id="downloadStateBtn" type="button">Export Save</button>
+          <label class="import-save" for="importStateInput">Import Save</label>
+          <input id="importStateInput" type="file" accept="application/json">
+          <button id="clearBtn" class="danger" type="button">Clear Colors</button>
+        </section>
+      </aside>
+
+      <section class="canvas-area">
+        <div class="top-strip">
+          <div>
+            <strong id="templateTitle">Cozy Friends</strong>
+            <span id="roomName">a7k2p</span>
+          </div>
+          <div id="lastAction">Tap a blank space to color it.</div>
+        </div>
+        <div id="artboard" class="artboard" aria-label="Coloring canvas"></div>
+      </section>
+    </main>
+
+    <template id="cozy-template">
+      <svg class="coloring-page" viewBox="0 0 900 900" role="img" aria-label="Cozy friends coloring page">
+        <rect data-region="wall" x="56" y="54" width="788" height="642" rx="28"></rect>
+        <path data-region="rug" d="M155 695 C240 636 660 635 744 698 C689 785 229 786 155 695 Z"></path>
+        <path data-region="window" d="M596 120 h172 v166 h-172 z"></path>
+        <path data-region="sky" d="M616 140 h132 v54 h-132 z"></path>
+        <path data-region="curtain-left" d="M580 104 C620 140 612 248 574 303 L548 288 C577 235 575 155 548 119 Z"></path>
+        <path data-region="curtain-right" d="M788 104 C748 140 756 248 794 303 L820 288 C791 235 793 155 820 119 Z"></path>
+        <circle data-region="sun" cx="714" cy="169" r="25"></circle>
+        <path data-region="sofa" d="M191 436 C207 354 692 353 710 436 L726 624 H174 Z"></path>
+        <path data-region="sofa-seat" d="M215 504 H685 V650 H215 Z"></path>
+        <path data-region="left-pillow" d="M214 392 C280 363 346 394 345 466 C278 492 219 470 214 392 Z"></path>
+        <path data-region="right-pillow" d="M555 396 C620 359 685 390 685 466 C620 492 560 472 555 396 Z"></path>
+        <path data-region="blanket" d="M332 491 C411 457 501 458 575 492 L550 651 H355 Z"></path>
+        <path data-region="blanket-fold" d="M424 487 C455 526 456 596 430 651 H355 L371 519 Z"></path>
+        <circle data-region="left-face" cx="332" cy="344" r="84"></circle>
+        <path data-region="left-ear-a" d="M269 289 C219 219 235 162 278 186 C309 214 315 255 303 300 Z"></path>
+        <path data-region="left-ear-b" d="M388 290 C447 226 438 166 393 184 C359 210 350 253 358 299 Z"></path>
+        <circle data-region="right-face" cx="536" cy="351" r="80"></circle>
+        <path data-region="right-ear-a" d="M482 294 C448 225 466 177 503 196 C530 224 534 257 515 302 Z"></path>
+        <path data-region="right-ear-b" d="M592 294 C640 232 635 178 594 193 C564 219 558 257 566 303 Z"></path>
+        <path data-region="mug" d="M675 519 h70 v74 c0 35 -70 35 -70 0 z"></path>
+        <path data-region="mug-handle" d="M744 539 C797 535 797 583 744 579 L744 557 C768 558 768 561 744 559 Z"></path>
+        <path data-region="book" d="M126 595 C176 573 219 576 268 604 V690 C220 666 174 667 126 690 Z"></path>
+        <path data-region="book-page" d="M268 604 C316 576 363 574 410 595 V690 C363 668 315 666 268 690 Z"></path>
+        <path data-region="plant-pot" d="M105 285 h96 l-16 96 h-64 z"></path>
+        <path data-region="leaf-a" d="M151 280 C90 246 94 191 150 220 C169 238 169 258 151 280 Z"></path>
+        <path data-region="leaf-b" d="M160 276 C201 223 259 243 229 292 C202 303 181 299 160 276 Z"></path>
+        <path data-region="leaf-c" d="M153 274 C146 211 190 176 213 226 C205 254 185 271 153 274 Z"></path>
+        <g class="line-art">
+          <rect x="56" y="54" width="788" height="642" rx="28"></rect>
+          <path d="M155 695 C240 636 660 635 744 698 C689 785 229 786 155 695 Z"></path>
+          <path d="M596 120 h172 v166 h-172 z M682 120 v166 M596 203 h172"></path>
+          <circle cx="714" cy="169" r="25"></circle>
+          <path d="M580 104 C620 140 612 248 574 303 L548 288 C577 235 575 155 548 119 Z"></path>
+          <path d="M788 104 C748 140 756 248 794 303 L820 288 C791 235 793 155 820 119 Z"></path>
+          <path d="M191 436 C207 354 692 353 710 436 L726 624 H174 Z"></path>
+          <path d="M215 504 H685 V650 H215 Z M332 491 C411 457 501 458 575 492 L550 651 H355 Z M424 487 C455 526 456 596 430 651"></path>
+          <path d="M214 392 C280 363 346 394 345 466 C278 492 219 470 214 392 Z M555 396 C620 359 685 390 685 466 C620 492 560 472 555 396 Z"></path>
+          <circle cx="332" cy="344" r="84"></circle>
+          <path d="M269 289 C219 219 235 162 278 186 C309 214 315 255 303 300 Z M388 290 C447 226 438 166 393 184 C359 210 350 253 358 299 Z"></path>
+          <circle cx="536" cy="351" r="80"></circle>
+          <path d="M482 294 C448 225 466 177 503 196 C530 224 534 257 515 302 Z M592 294 C640 232 635 178 594 193 C564 219 558 257 566 303 Z"></path>
+          <path d="M302 348 q13 13 26 0 M536 355 q13 13 26 0 M296 323 h1 M363 323 h1 M501 331 h1 M569 331 h1"></path>
+          <path d="M675 519 h70 v74 c0 35 -70 35 -70 0 z M744 539 C797 535 797 583 744 579"></path>
+          <path d="M126 595 C176 573 219 576 268 604 C316 576 363 574 410 595 V690 C363 668 315 666 268 690 C220 666 174 667 126 690 Z M268 604 V690"></path>
+          <path d="M105 285 h96 l-16 96 h-64 z M151 280 C90 246 94 191 150 220 C169 238 169 258 151 280 Z M160 276 C201 223 259 243 229 292 C202 303 181 299 160 276 Z M153 274 C146 211 190 176 213 226 C205 254 185 271 153 274 Z"></path>
+        </g>
+      </svg>
+    </template>
+
+    <template id="garden-template">
+      <svg class="coloring-page" viewBox="0 0 900 900" role="img" aria-label="Pocket garden coloring page">
+        <rect data-region="background" x="80" y="80" width="740" height="740" rx="34"></rect>
+        <circle data-region="center-flower" cx="450" cy="420" r="58"></circle>
+        <ellipse data-region="petal-1" cx="450" cy="315" rx="42" ry="82"></ellipse>
+        <ellipse data-region="petal-2" cx="555" cy="420" rx="82" ry="42"></ellipse>
+        <ellipse data-region="petal-3" cx="450" cy="525" rx="42" ry="82"></ellipse>
+        <ellipse data-region="petal-4" cx="345" cy="420" rx="82" ry="42"></ellipse>
+        <ellipse data-region="petal-5" cx="524" cy="346" rx="45" ry="76" transform="rotate(45 524 346)"></ellipse>
+        <ellipse data-region="petal-6" cx="524" cy="494" rx="45" ry="76" transform="rotate(-45 524 494)"></ellipse>
+        <ellipse data-region="petal-7" cx="376" cy="494" rx="45" ry="76" transform="rotate(45 376 494)"></ellipse>
+        <ellipse data-region="petal-8" cx="376" cy="346" rx="45" ry="76" transform="rotate(-45 376 346)"></ellipse>
+        <path data-region="stem" d="M438 475 C420 565 384 640 344 718 H398 C434 636 465 560 462 475 Z"></path>
+        <path data-region="leaf-left" d="M398 615 C302 564 239 591 231 665 C294 686 356 666 398 615 Z"></path>
+        <path data-region="leaf-right" d="M454 584 C542 519 625 530 650 601 C593 645 519 639 454 584 Z"></path>
+        <path data-region="pot" d="M277 694 H624 L579 800 H322 Z"></path>
+        <path data-region="pot-band" d="M296 690 H604 V732 H296 Z"></path>
+        <circle data-region="bug-body" cx="214" cy="250" r="38"></circle>
+        <circle data-region="bug-wing-a" cx="190" cy="235" r="28"></circle>
+        <circle data-region="bug-wing-b" cx="238" cy="235" r="28"></circle>
+        <path data-region="cloud-a" d="M616 205 C618 159 683 150 704 190 C750 178 784 229 752 265 H610 C579 249 584 213 616 205 Z"></path>
+        <g class="line-art">
+          <rect x="80" y="80" width="740" height="740" rx="34"></rect>
+          <circle cx="450" cy="420" r="58"></circle>
+          <ellipse cx="450" cy="315" rx="42" ry="82"></ellipse><ellipse cx="555" cy="420" rx="82" ry="42"></ellipse><ellipse cx="450" cy="525" rx="42" ry="82"></ellipse><ellipse cx="345" cy="420" rx="82" ry="42"></ellipse>
+          <ellipse cx="524" cy="346" rx="45" ry="76" transform="rotate(45 524 346)"></ellipse><ellipse cx="524" cy="494" rx="45" ry="76" transform="rotate(-45 524 494)"></ellipse><ellipse cx="376" cy="494" rx="45" ry="76" transform="rotate(45 376 494)"></ellipse><ellipse cx="376" cy="346" rx="45" ry="76" transform="rotate(-45 376 346)"></ellipse>
+          <path d="M438 475 C420 565 384 640 344 718 H398 C434 636 465 560 462 475 Z M398 615 C302 564 239 591 231 665 C294 686 356 666 398 615 Z M454 584 C542 519 625 530 650 601 C593 645 519 639 454 584 Z"></path>
+          <path d="M277 694 H624 L579 800 H322 Z M296 690 H604 V732 H296 Z"></path>
+          <path d="M214 288 v44 M214 332 q-26 18 -44 44 M214 332 q26 18 44 44"></path>
+          <circle cx="214" cy="250" r="38"></circle><circle cx="190" cy="235" r="28"></circle><circle cx="238" cy="235" r="28"></circle>
+          <path d="M616 205 C618 159 683 150 704 190 C750 178 784 229 752 265 H610 C579 249 584 213 616 205 Z"></path>
+        </g>
+      </svg>
+    </template>
+
+    <template id="snack-template">
+      <svg class="coloring-page" viewBox="0 0 900 900" role="img" aria-label="Snack table coloring page">
+        <rect data-region="wallpaper" x="70" y="70" width="760" height="620" rx="32"></rect>
+        <path data-region="table" d="M118 585 H782 L730 792 H170 Z"></path>
+        <path data-region="plate" d="M242 551 C305 505 463 505 526 551 C480 604 289 604 242 551 Z"></path>
+        <circle data-region="cookie-a" cx="343" cy="522" r="58"></circle>
+        <circle data-region="cookie-b" cx="432" cy="525" r="52"></circle>
+        <path data-region="cup" d="M580 412 H720 L694 626 H606 Z"></path>
+        <path data-region="cup-sleeve" d="M598 482 H704 L694 565 H608 Z"></path>
+        <path data-region="steam-a" d="M604 362 C560 322 642 292 604 246"></path>
+        <path data-region="steam-b" d="M655 362 C614 317 706 292 657 232"></path>
+        <path data-region="steam-c" d="M703 362 C666 323 744 301 718 256"></path>
+        <path data-region="jar" d="M146 344 H276 L258 544 H164 Z"></path>
+        <path data-region="jar-lid" d="M136 306 H286 V350 H136 Z"></path>
+        <circle data-region="candy-a" cx="197" cy="426" r="24"></circle>
+        <circle data-region="candy-b" cx="232" cy="486" r="24"></circle>
+        <circle data-region="candy-c" cx="188" cy="505" r="23"></circle>
+        <path data-region="banner-a" d="M138 148 L264 171 L234 250 L115 226 Z"></path>
+        <path data-region="banner-b" d="M305 155 L444 145 L442 235 L315 247 Z"></path>
+        <path data-region="banner-c" d="M486 146 L626 162 L599 249 L475 231 Z"></path>
+        <path data-region="banner-d" d="M668 171 L781 149 L796 226 L683 251 Z"></path>
+        <g class="line-art">
+          <rect x="70" y="70" width="760" height="620" rx="32"></rect>
+          <path d="M118 585 H782 L730 792 H170 Z M166 640 H734"></path>
+          <path d="M242 551 C305 505 463 505 526 551 C480 604 289 604 242 551 Z"></path>
+          <circle cx="343" cy="522" r="58"></circle><circle cx="432" cy="525" r="52"></circle>
+          <path d="M323 505 h1 M356 548 h1 M430 503 h1 M456 547 h1"></path>
+          <path d="M580 412 H720 L694 626 H606 Z M598 482 H704 L694 565 H608 Z"></path>
+          <path d="M604 362 C560 322 642 292 604 246 M655 362 C614 317 706 292 657 232 M703 362 C666 323 744 301 718 256"></path>
+          <path d="M146 344 H276 L258 544 H164 Z M136 306 H286 V350 H136 Z"></path>
+          <circle cx="197" cy="426" r="24"></circle><circle cx="232" cy="486" r="24"></circle><circle cx="188" cy="505" r="23"></circle>
+          <path d="M138 148 L264 171 L234 250 L115 226 Z M305 155 L444 145 L442 235 L315 247 Z M486 146 L626 162 L599 249 L475 231 Z M668 171 L781 149 L796 226 L683 251 Z"></path>
+        </g>
+      </svg>
+    </template>
+
+    <script src="app.js?v=room-save-v2"></script>
+  </body>
+</html>
