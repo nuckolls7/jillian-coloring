@@ -4,7 +4,7 @@ const builtInTemplates = {
   snack: { title: "Snack Table", templateId: "snack-template", type: "svg" }
 };
 
-const themeCollections = {
+const defaultThemeCollections = {
   winter: [
     { template: "cozy", title: "Cozy Friends" },
     { template: "snack", title: "Cocoa Table" }
@@ -23,6 +23,8 @@ const themeCollections = {
   ]
 };
 
+let themeCollections = { ...defaultThemeCollections };
+let seasonalTemplates = {};
 let templates = { ...builtInTemplates };
 
 const paletteColors = [
@@ -48,6 +50,7 @@ const appState = {
   color: "#f48fb1",
   fills: {},
   uploads: {},
+  imageSnapshots: {},
   uploadImageData: null,
   uploadOriginalData: null,
   uploadSnapshotTimer: null,
@@ -122,6 +125,7 @@ const uploadsKey = "jillian-coloring:uploads";
 const regionKey = (template, region) => `${template}:${region}`;
 
 async function boot() {
+  await loadThemePages();
   await loadUploads();
   rebuildTemplateOptions();
   clearRememberedRoom();
@@ -185,7 +189,7 @@ function bindControls() {
     appState.template = els.templateSelect.value;
     renderTemplate(appState.template);
     await ensureCurrentRoom();
-    if (templates[appState.template] && templates[appState.template].type === "image") {
+    if (templates[appState.template] && templates[appState.template].type === "image" && appState.uploads[appState.template]) {
       broadcast({ type: "upload", id: appState.template, page: appState.uploads[appState.template] });
     }
     broadcast({ type: "template", template: appState.template });
@@ -341,15 +345,11 @@ function showTheme(theme) {
 
   pages.forEach((page) => {
     const template = templates[page.template] || builtInTemplates[page.template];
+    if (!template) return;
     const card = document.createElement("button");
     card.type = "button";
     card.className = "theme-card";
-    const preview = document.getElementById(template.templateId).content.firstElementChild.cloneNode(true);
-    preview.removeAttribute("class");
-    preview.querySelectorAll("[data-region]").forEach((region) => {
-      region.removeAttribute("data-region");
-      region.style.fill = "#fffdf8";
-    });
+    const preview = createThemePreview(template);
     const title = document.createElement("strong");
     title.textContent = page.title;
     card.append(preview, title);
@@ -362,6 +362,24 @@ function showTheme(theme) {
     });
     els.themeGrid.appendChild(card);
   });
+}
+
+function createThemePreview(template) {
+  if (template.type === "image") {
+    const img = document.createElement("img");
+    img.src = template.dataUrl;
+    img.alt = template.title;
+    img.loading = "lazy";
+    return img;
+  }
+
+  const preview = document.getElementById(template.templateId).content.firstElementChild.cloneNode(true);
+  preview.removeAttribute("class");
+  preview.querySelectorAll("[data-region]").forEach((region) => {
+    region.removeAttribute("data-region");
+    region.style.fill = "#fffdf8";
+  });
+  return preview;
 }
 
 async function joinSharedRoom(room) {
@@ -423,6 +441,14 @@ function currentRoomUploads() {
   return { [appState.template]: appState.uploads[appState.template] };
 }
 
+function currentImageSnapshots() {
+  const template = templates[appState.template];
+  if (!template || template.type !== "image") return {};
+
+  const coloredDataUrl = template.coloredDataUrl || appState.imageSnapshots[appState.template] || "";
+  return coloredDataUrl ? { [appState.template]: coloredDataUrl } : {};
+}
+
 async function createRoom(room = appState.room, statusEl = null) {
   const targetRoom = normalizeRoom(room);
   if (!targetRoom || location.protocol === "file:") return false;
@@ -436,7 +462,8 @@ async function createRoom(room = appState.room, statusEl = null) {
         room: targetRoom,
         template: appState.template,
         fills: appState.fills,
-        uploads: currentRoomUploads()
+        uploads: currentRoomUploads(),
+        imageSnapshots: currentImageSnapshots()
       })
     });
 
@@ -554,7 +581,8 @@ async function saveCurrentWork() {
     type: "hello",
     template: appState.template,
     fills: appState.fills,
-    uploads: currentRoomUploads()
+    uploads: currentRoomUploads(),
+    imageSnapshots: currentImageSnapshots()
   });
 
   try {
@@ -629,10 +657,48 @@ async function copyInputValue(input, statusText) {
   if (input === els.customShareUrl) els.customUploadStatus.textContent = `${statusText}.`;
 }
 
+async function loadThemePages() {
+  try {
+    const response = await fetch("pages/manifest.json", { cache: "no-store" });
+    if (!response.ok) return;
+    const manifest = await response.json();
+    const nextTemplates = {};
+    const nextCollections = { winter: [], fall: [], spring: [], summer: [] };
+
+    (manifest.pages || []).forEach((page) => {
+      const theme = String(page.theme || "").toLowerCase();
+      if (!nextCollections[theme] || !page.id || !page.src) return;
+
+      nextTemplates[page.id] = {
+        id: page.id,
+        title: page.title || "Seasonal Page",
+        type: "image",
+        dataUrl: page.src,
+        coloredDataUrl: ""
+      };
+      nextCollections[theme].push({ template: page.id, title: page.title || "Seasonal Page" });
+    });
+
+    seasonalTemplates = nextTemplates;
+    themeCollections = Object.keys(nextCollections).reduce((collections, theme) => {
+      collections[theme] = nextCollections[theme].length ? nextCollections[theme] : defaultThemeCollections[theme];
+      return collections;
+    }, {});
+    rebuildTemplateCatalog();
+  } catch {
+    seasonalTemplates = {};
+    themeCollections = { ...defaultThemeCollections };
+  }
+}
+
 async function loadUploads() {
   const saved = await readUploads();
   appState.uploads = saved && typeof saved === "object" ? saved : {};
-  templates = { ...builtInTemplates };
+  rebuildTemplateCatalog();
+}
+
+function rebuildTemplateCatalog() {
+  templates = { ...builtInTemplates, ...seasonalTemplates };
   Object.entries(appState.uploads).forEach(([id, page]) => {
     if (!page || !page.dataUrl) return;
     templates[id] = {
@@ -642,6 +708,10 @@ async function loadUploads() {
       dataUrl: page.dataUrl,
       coloredDataUrl: page.coloredDataUrl || ""
     };
+  });
+
+  Object.entries(appState.imageSnapshots).forEach(([id, coloredDataUrl]) => {
+    if (templates[id] && templates[id].type === "image") templates[id].coloredDataUrl = coloredDataUrl || "";
   });
 }
 
@@ -825,14 +895,15 @@ function renderUploadedPage(config) {
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     appState.uploadOriginalData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-    if (config.coloredDataUrl) {
+    const savedSnapshot = config.coloredDataUrl || appState.imageSnapshots[appState.template] || "";
+    if (savedSnapshot) {
       const colored = new Image();
       colored.onload = () => {
         ctx.drawImage(colored, 0, 0, canvas.width, canvas.height);
         appState.uploadImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         updateProgress();
       };
-      colored.src = config.coloredDataUrl;
+      colored.src = savedSnapshot;
     } else {
       appState.uploadImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       updateProgress();
@@ -978,7 +1049,7 @@ function applyFills() {
 function updateProgress() {
   if (templates[appState.template] && templates[appState.template].type === "image") {
     els.progressBar.style.width = "100%";
-    els.progressText.textContent = "Uploaded page saved";
+    els.progressText.textContent = "Image page ready";
     return;
   }
 
@@ -1047,7 +1118,7 @@ function clearColors() {
 function saveDraft(showMessage = true) {
   if (templates[appState.template] && templates[appState.template].type === "image") {
     saveUploadedCanvas(false, showMessage);
-    if (showMessage) setStatus("Uploaded page saved");
+    if (showMessage) setStatus("Image page saved");
     return;
   }
 
@@ -1070,12 +1141,15 @@ function loadDraft() {
 function saveUploadedCanvas(shareWithRoom = false, persist = false) {
   const template = templates[appState.template];
   const canvas = els.artboard.querySelector("canvas");
-  if (!template || template.type !== "image" || !canvas || !appState.uploads[appState.template] || !appState.uploadOriginalData) return;
+  if (!template || template.type !== "image" || !canvas || !appState.uploadOriginalData) return;
 
   const coloredDataUrl = canvas.toDataURL("image/png");
-  appState.uploads[appState.template].coloredDataUrl = coloredDataUrl;
+  appState.imageSnapshots[appState.template] = coloredDataUrl;
   templates[appState.template].coloredDataUrl = coloredDataUrl;
-  if (persist) persistUploads();
+  if (appState.uploads[appState.template]) {
+    appState.uploads[appState.template].coloredDataUrl = coloredDataUrl;
+    if (persist) persistUploads();
+  }
 
   if (shareWithRoom) {
     broadcast({ type: "upload-progress", template: appState.template, coloredDataUrl, reason: "replace" });
@@ -1116,7 +1190,7 @@ function connectRoom(room) {
     setOnline(true, "Room online");
     const synced = await syncRoomState();
     if (!synced) return;
-    broadcast({ type: "hello", template: appState.template, fills: appState.fills, uploads: currentRoomUploads() });
+    broadcast({ type: "hello", template: appState.template, fills: appState.fills, uploads: currentRoomUploads(), imageSnapshots: currentImageSnapshots() });
   });
 
   appState.eventSource.addEventListener("message", (event) => {
@@ -1173,6 +1247,7 @@ async function applyRoomState(state) {
   if (!state) return;
   const hasUploads = state.uploads && Object.keys(state.uploads).length > 0;
   const hasFills = state.fills && Object.keys(state.fills).length > 0;
+  const hasImageSnapshots = state.imageSnapshots && Object.keys(state.imageSnapshots).length > 0;
 
   if (hasUploads) {
     appState.uploads = { ...appState.uploads, ...state.uploads };
@@ -1185,11 +1260,24 @@ async function applyRoomState(state) {
     appState.fills = { ...appState.fills, ...state.fills };
   }
 
-  if (state.template && templates[state.template] && (state.template !== "cozy" || hasUploads || hasFills)) {
+  if (hasImageSnapshots) {
+    appState.imageSnapshots = { ...appState.imageSnapshots, ...state.imageSnapshots };
+    applyImageSnapshots(state.imageSnapshots);
+  }
+
+  if (state.template && templates[state.template] && (state.template !== "cozy" || hasUploads || hasFills || hasImageSnapshots)) {
     appState.template = state.template;
   }
 
   renderTemplate(appState.template);
+}
+
+function applyImageSnapshots(snapshots = {}) {
+  Object.entries(snapshots).forEach(([id, coloredDataUrl]) => {
+    if (templates[id] && templates[id].type === "image") {
+      templates[id].coloredDataUrl = coloredDataUrl || "";
+    }
+  });
 }
 
 async function receiveMessage(message) {
@@ -1201,6 +1289,10 @@ async function receiveMessage(message) {
       rebuildTemplateOptions();
     }
     Object.assign(appState.fills, message.fills || {});
+    if (message.imageSnapshots && Object.keys(message.imageSnapshots).length) {
+      appState.imageSnapshots = { ...appState.imageSnapshots, ...message.imageSnapshots };
+      applyImageSnapshots(message.imageSnapshots);
+    }
     if (message.template && templates[message.template]) appState.template = message.template;
     renderTemplate(appState.template);
     if (templates[appState.template] && templates[appState.template].type === "image") {
@@ -1237,10 +1329,11 @@ async function receiveMessage(message) {
     setStatus("A room page was shared");
   }
 
-  if (message.type === "upload-progress" && message.template && appState.uploads[message.template]) {
-    appState.uploads[message.template].coloredDataUrl = message.coloredDataUrl || "";
+  if (message.type === "upload-progress" && message.template) {
+    appState.imageSnapshots[message.template] = message.coloredDataUrl || "";
+    if (appState.uploads[message.template]) appState.uploads[message.template].coloredDataUrl = message.coloredDataUrl || "";
     if (templates[message.template]) templates[message.template].coloredDataUrl = message.coloredDataUrl || "";
-    persistUploads();
+    if (appState.uploads[message.template]) persistUploads();
     if (message.reason === "replace" && appState.template === message.template) {
       paintCurrentCanvasFromDataUrl(message.coloredDataUrl);
     }
@@ -1257,6 +1350,7 @@ async function receiveMessage(message) {
 
   if (message.type === "delete-upload" && message.template) {
     delete appState.uploads[message.template];
+    delete appState.imageSnapshots[message.template];
     await saveUploads();
     await loadUploads();
     rebuildTemplateOptions();
@@ -1381,7 +1475,7 @@ function importSaveFile(event) {
       if (importedTemplate && importedTemplate.type === "image") {
         await broadcast({ type: "upload", id: appState.template, page: appState.uploads[appState.template] });
       }
-      broadcast({ type: "hello", template: appState.template, fills: appState.fills, uploads: currentRoomUploads() });
+      broadcast({ type: "hello", template: appState.template, fills: appState.fills, uploads: currentRoomUploads(), imageSnapshots: currentImageSnapshots() });
     }
     setStatus("Save file imported");
   };

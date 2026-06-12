@@ -44,6 +44,17 @@ The app does not reopen your last Room ID automatically. Each new visit starts w
 
 Use **Upload Coloring Page** for PNG, JPG, WebP, or SVG files. Uploaded pages are saved in this browser and use click-to-fill canvas coloring for connected blank areas.
 
+## Seasonal Pages
+
+The theme dropdown loads built-in seasonal image pages from `pages/manifest.json` and the folders under `pages/`:
+
+- `pages/Winter`
+- `pages/Fall`
+- `pages/Spring`
+- `pages/Summer`
+
+When updating GitHub, upload the whole `pages` folder along with code changes so Render can serve the seasonal images.
+
 ## Public Website
 
 To make Jillian Coloring work from anywhere, deploy this Node app to a public host. Once deployed, people on different Wi-Fi networks can use the same public website URL and Room ID to color together.

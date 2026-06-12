@@ -191,6 +191,7 @@ function createRoomState(room, initial = {}) {
       template: initial.template || "cozy",
       fills: initial.fills || {},
       uploads: initial.uploads || {},
+      imageSnapshots: initial.imageSnapshots || {},
       saved: false,
       dirty: true,
       savedSnapshot: null,
@@ -212,11 +213,13 @@ function updateRoomState(room, message) {
   const state = getRoomState(room);
   if (!state) return false;
   state.lastActive = Date.now();
+  if (!state.imageSnapshots) state.imageSnapshots = {};
 
   if (message.type === "hello") {
     state.template = message.template || state.template;
     state.fills = { ...state.fills, ...(message.fills || {}) };
     state.uploads = { ...state.uploads, ...(message.uploads || {}) };
+    state.imageSnapshots = { ...state.imageSnapshots, ...(message.imageSnapshots || {}) };
     state.dirty = true;
   }
 
@@ -245,8 +248,9 @@ function updateRoomState(room, message) {
     state.dirty = true;
   }
 
-  if (message.type === "upload-progress" && message.template && state.uploads[message.template]) {
-    state.uploads[message.template].coloredDataUrl = message.coloredDataUrl || "";
+  if (message.type === "upload-progress" && message.template) {
+    state.imageSnapshots[message.template] = message.coloredDataUrl || "";
+    if (state.uploads[message.template]) state.uploads[message.template].coloredDataUrl = message.coloredDataUrl || "";
     state.template = message.template;
     state.dirty = true;
   }
@@ -258,6 +262,7 @@ function updateRoomState(room, message) {
 
   if (message.type === "delete-upload" && message.template) {
     delete state.uploads[message.template];
+    delete state.imageSnapshots[message.template];
     if (state.template === message.template) state.template = "cozy";
     state.dirty = true;
   }
@@ -269,7 +274,8 @@ function roomSnapshot(state) {
   return {
     template: state.template || "cozy",
     fills: state.fills || {},
-    uploads: state.uploads || {}
+    uploads: state.uploads || {},
+    imageSnapshots: state.imageSnapshots || {}
   };
 }
 
@@ -287,6 +293,7 @@ function settleInactiveRoom(room) {
     state.template = snapshot.template || "cozy";
     state.fills = snapshot.fills || {};
     state.uploads = snapshot.uploads || {};
+    state.imageSnapshots = snapshot.imageSnapshots || {};
     state.dirty = false;
   }
 }
@@ -307,7 +314,8 @@ function loadSavedRooms() {
       const cleanSnapshot = {
         template: snapshot.template || "cozy",
         fills: snapshot.fills || {},
-        uploads: snapshot.uploads || {}
+        uploads: snapshot.uploads || {},
+        imageSnapshots: snapshot.imageSnapshots || {}
       };
       roomStates.set(cleanRoom, {
         ...cloneJson(cleanSnapshot),

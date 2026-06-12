@@ -1,0 +1,124 @@
+{
+    "pages":  [
+                  {
+                      "id":  "season-winter-cozy-december-days",
+                      "theme":  "winter",
+                      "title":  "Cozy December Days",
+                      "src":  "pages/Winter/Cozy%20December%20Days.png"
+                  },
+                  {
+                      "id":  "season-winter-cozy-igloo-fun",
+                      "theme":  "winter",
+                      "title":  "Cozy Igloo Fun",
+                      "src":  "pages/Winter/Cozy%20Igloo%20Fun.png"
+                  },
+                  {
+                      "id":  "season-winter-cozy-snow-globe",
+                      "theme":  "winter",
+                      "title":  "Cozy Snow Globe",
+                      "src":  "pages/Winter/Cozy%20Snow%20Globe.png"
+                  },
+                  {
+                      "id":  "season-winter-cozy-winter-views",
+                      "theme":  "winter",
+                      "title":  "Cozy Winter Views",
+                      "src":  "pages/Winter/Cozy%20Winter%20Views.png"
+                  },
+                  {
+                      "id":  "season-winter-north-pole-express",
+                      "theme":  "winter",
+                      "title":  "North Pole Express",
+                      "src":  "pages/Winter/North%20Pole%20Express.png"
+                  },
+                  {
+                      "id":  "season-fall-cozy-cabin",
+                      "theme":  "fall",
+                      "title":  "Cozy Cabin",
+                      "src":  "pages/Fall/Cozy%20Cabin.png"
+                  },
+                  {
+                      "id":  "season-fall-cozy-falling-leaves",
+                      "theme":  "fall",
+                      "title":  "Cozy Falling Leaves",
+                      "src":  "pages/Fall/Cozy%20Falling%20Leaves.png"
+                  },
+                  {
+                      "id":  "season-fall-cozy-living-room-design-request",
+                      "theme":  "fall",
+                      "title":  "Cozy Living Room (Design Request)",
+                      "src":  "pages/Fall/Cozy%20Living%20Room%20(Design%20Request).png"
+                  },
+                  {
+                      "id":  "season-fall-honey-harvest",
+                      "theme":  "fall",
+                      "title":  "Honey Harvest",
+                      "src":  "pages/Fall/Honey%20Harvest.png"
+                  },
+                  {
+                      "id":  "season-fall-tree-swing",
+                      "theme":  "fall",
+                      "title":  "Tree Swing",
+                      "src":  "pages/Fall/Tree%20Swing.png"
+                  },
+                  {
+                      "id":  "season-spring-cozy-easter-egg-fun",
+                      "theme":  "spring",
+                      "title":  "Cozy Easter Egg Fun",
+                      "src":  "pages/Spring/Cozy%20Easter%20Egg%20Fun.png"
+                  },
+                  {
+                      "id":  "season-spring-cozy-easter-friends",
+                      "theme":  "spring",
+                      "title":  "Cozy Easter Friends",
+                      "src":  "pages/Spring/Cozy%20Easter%20Friends.png"
+                  },
+                  {
+                      "id":  "season-spring-cozy-spring-class",
+                      "theme":  "spring",
+                      "title":  "Cozy Spring Class",
+                      "src":  "pages/Spring/Cozy%20Spring%20Class.png"
+                  },
+                  {
+                      "id":  "season-spring-cozy-spring-clean",
+                      "theme":  "spring",
+                      "title":  "Cozy Spring Clean",
+                      "src":  "pages/Spring/Cozy%20Spring%20Clean.png"
+                  },
+                  {
+                      "id":  "season-spring-cozy-turtle-spa",
+                      "theme":  "spring",
+                      "title":  "Cozy Turtle Spa",
+                      "src":  "pages/Spring/Cozy%20Turtle%20Spa.png"
+                  },
+                  {
+                      "id":  "season-summer-cozy-fishing-boat",
+                      "theme":  "summer",
+                      "title":  "Cozy Fishing Boat",
+                      "src":  "pages/Summer/Cozy%20Fishing%20Boat.png"
+                  },
+                  {
+                      "id":  "season-summer-cozy-outdoor-cinema",
+                      "theme":  "summer",
+                      "title":  "Cozy Outdoor Cinema",
+                      "src":  "pages/Summer/Cozy%20Outdoor%20Cinema.png"
+                  },
+                  {
+                      "id":  "season-summer-cozy-rafting-adventure",
+                      "theme":  "summer",
+                      "title":  "Cozy Rafting Adventure",
+                      "src":  "pages/Summer/Cozy%20Rafting%20Adventure.png"
+                  },
+                  {
+                      "id":  "season-summer-cozy-summer-inflatable-donut",
+                      "theme":  "summer",
+                      "title":  "Cozy Summer Inflatable Donut",
+                      "src":  "pages/Summer/Cozy%20Summer%20Inflatable%20Donut.png"
+                  },
+                  {
+                      "id":  "season-summer-cozy-surf-sip",
+                      "theme":  "summer",
+                      "title":  "Cozy Surf Sip",
+                      "src":  "pages/Summer/Cozy%20Surf%20Sip.png"
+                  }
+              ]
+}

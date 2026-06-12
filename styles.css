@@ -143,11 +143,17 @@ button:hover,
   box-shadow: 0 16px 36px rgba(38, 31, 33, 0.1);
 }
 
-.theme-card svg {
+.theme-card svg,
+.theme-card img {
   width: 100%;
   aspect-ratio: 4 / 3;
   border-radius: 8px;
   background: #fffaf2;
+}
+
+.theme-card img {
+  display: block;
+  object-fit: contain;
 }
 
 .theme-card strong {
