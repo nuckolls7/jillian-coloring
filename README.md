@@ -50,6 +50,8 @@ Saved sessions can include multiple pages, click-fill colors, uploaded page data
 
 ## Upload Coloring Pages
 
+From **Custom**, use **Blank Drawing Canvas** to start with an empty drawing page, or use **Upload Coloring Page** to start from your own image.
+
 Use **Upload Coloring Page** for PNG, JPG, WebP, or SVG files. Uploaded pages are saved in this browser and become pages inside the current room. They support click-to-fill coloring and freehand drawing on top.
 
 Use **New Blank Drawing Page** to add an empty drawing page to the current room.

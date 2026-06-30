@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Jillian Coloring</title>
-    <link rel="stylesheet" href="styles.css?v=wallpaper-no-progress">
+    <link rel="stylesheet" href="styles.css?v=custom-blank-canvas">
   </head>
   <body>
     <section id="homeView" class="home-screen">
@@ -60,10 +60,11 @@
             <input id="customShareUrl" type="text" readonly value="http://localhost:4173">
             <button id="customCopyShareBtn" type="button">Copy</button>
           </div>
-          <label class="field-label" for="customUploadPageInput">Upload Picture</label>
-          <button id="customUploadBtn" class="import-save wide" type="button">Choose Coloring Page</button>
+          <label class="field-label">Custom Page</label>
+          <button id="customBlankBtn" type="button">Blank Drawing Canvas</button>
+          <button id="customUploadBtn" class="import-save wide" type="button">Upload Coloring Page</button>
           <input id="customUploadPageInput" class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
-          <p id="customUploadStatus" class="small-note">PNG, JPG, WebP, and SVG are supported.</p>
+          <p id="customUploadStatus" class="small-note">Start blank or upload PNG, JPG, WebP, or SVG.</p>
           <label class="field-label" for="customColorPicker">Color</label>
           <input id="customColorPicker" type="color" value="#f48fb1">
           <div id="customPalette" class="palette" aria-label="Custom page palette"></div>
@@ -307,6 +308,6 @@
       </svg>
     </template>
 
-    <script src="app.js?v=wallpaper-no-progress"></script>
+    <script src="app.js?v=custom-blank-canvas"></script>
   </body>
 </html>

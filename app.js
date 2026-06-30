@@ -122,6 +122,7 @@ const els = {
   customNewRoomBtn: document.getElementById("customNewRoomBtn"),
   customShareUrl: document.getElementById("customShareUrl"),
   customCopyShareBtn: document.getElementById("customCopyShareBtn"),
+  customBlankBtn: document.getElementById("customBlankBtn"),
   customUploadBtn: document.getElementById("customUploadBtn"),
   customUploadPageInput: document.getElementById("customUploadPageInput"),
   customUploadStatus: document.getElementById("customUploadStatus"),
@@ -216,6 +217,7 @@ function bindControls() {
     if (event.key === "Enter") applyCustomRoomId();
   });
   els.customCopyShareBtn.addEventListener("click", () => copyInputValue(els.customShareUrl, "Share link copied"));
+  els.customBlankBtn.addEventListener("click", startCustomBlankDrawing);
   els.customColorPicker.addEventListener("input", () => {
     appState.color = els.customColorPicker.value;
     syncColorControls();
@@ -399,6 +401,16 @@ async function applyCustomRoomId() {
   setRoom(nextRoom);
   if (!(await createRoom(nextRoom, els.customUploadStatus))) return;
   els.customUploadStatus.textContent = `Room set to ${nextRoom}.`;
+}
+
+async function startCustomBlankDrawing() {
+  const nextRoom = normalizeRoom(els.customRoomInput.value) || createRoomCode();
+  if (!nextRoom) return;
+  setRoom(nextRoom);
+  els.customUploadStatus.textContent = "Opening blank drawing canvas...";
+  await createBlankDrawingPage();
+  els.customUploadStatus.textContent = "Blank drawing canvas created.";
+  showWorkspace(true);
 }
 
 async function joinWorkspaceRoomId() {
