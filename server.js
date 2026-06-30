@@ -205,6 +205,7 @@ function createRoomState(room, initial = {}) {
       savedSnapshot: null,
       lastActive: Date.now()
     };
+    pruneUnusedDefaultStarter(state);
     roomStates.set(room, state);
     return state;
   }
@@ -214,7 +215,9 @@ function createRoomState(room, initial = {}) {
 }
 
 function getRoomState(room) {
-  return room ? roomStates.get(room) : null;
+  const state = room ? roomStates.get(room) : null;
+  if (state && pruneUnusedDefaultStarter(state)) state.dirty = true;
+  return state;
 }
 
 function updateRoomState(room, message) {
@@ -304,6 +307,7 @@ function updateRoomState(room, message) {
     state.dirty = true;
   }
 
+  if (pruneUnusedDefaultStarter(state)) state.dirty = true;
   return true;
 }
 
@@ -329,6 +333,41 @@ function mergePages(state, pages = {}, pageOrder = []) {
     if (state.pages[id] && !ordered.includes(id)) ordered.push(id);
   });
   state.pageOrder = ordered;
+}
+
+function pruneUnusedDefaultStarter(state) {
+  if (!state || !state.pages || !state.pages.cozy) return false;
+  const ids = getOrderedPageIds(state);
+  if (ids.length <= 1 || pageHasArtwork(state, "cozy")) return false;
+
+  delete state.pages.cozy;
+  state.pageOrder = ids.filter((id) => id !== "cozy" && state.pages[id]);
+  if (state.template === "cozy") {
+    state.template = state.pageOrder[0] || Object.keys(state.pages)[0] || "cozy";
+  }
+  return true;
+}
+
+function getOrderedPageIds(state) {
+  const ordered = [];
+  (Array.isArray(state.pageOrder) ? state.pageOrder : []).forEach((id) => {
+    if (state.pages[id] && !ordered.includes(id)) ordered.push(id);
+  });
+  Object.keys(state.pages || {}).forEach((id) => {
+    if (!ordered.includes(id)) ordered.push(id);
+  });
+  return ordered;
+}
+
+function pageHasArtwork(state, id) {
+  const prefix = `${id}:`;
+  const hasFills = Object.keys(state.fills || {}).some((key) => key.startsWith(prefix));
+  return Boolean(
+    hasFills ||
+    (state.imageSnapshots && state.imageSnapshots[id]) ||
+    (state.drawingSnapshots && state.drawingSnapshots[id]) ||
+    (state.uploads && state.uploads[id] && state.uploads[id].coloredDataUrl)
+  );
 }
 
 function roomSnapshot(state) {

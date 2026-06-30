@@ -592,14 +592,14 @@ function currentDrawingSnapshots() {
   );
 }
 
-function currentRoomPages() {
-  ensurePageRecord(appState.template);
+function currentRoomPages(options = {}) {
+  if (options.ensureCurrent !== false) ensurePageRecord(appState.template);
   return { ...appState.pages };
 }
 
-function currentRoomPageOrder() {
-  ensurePageRecord(appState.template);
-  return getRoomPageIds();
+function currentRoomPageOrder(options = {}) {
+  if (options.ensureCurrent !== false) ensurePageRecord(appState.template);
+  return options.ensureCurrent === false ? getStoredRoomPageIds() : getRoomPageIds();
 }
 
 function createPageId(prefix = "page", source = "") {
@@ -939,7 +939,7 @@ async function ensureCurrentRoom() {
 async function joinExistingRoom(room, statusEl = null, updateHash = true) {
   const targetRoom = normalizeRoom(room);
   if (!targetRoom) return false;
-  showRoomMessage(statusEl, "");
+  showRoomMessage(statusEl, "Loading room...");
   if (!(await ensureCollaborationServer(statusEl))) return false;
 
   try {
@@ -2080,8 +2080,8 @@ function connectRoom(room) {
       uploads: currentRoomUploads(),
       imageSnapshots: currentImageSnapshots(),
       drawingSnapshots: currentDrawingSnapshots(),
-      pages: currentRoomPages(),
-      pageOrder: currentRoomPageOrder()
+      pages: currentRoomPages({ ensureCurrent: false }),
+      pageOrder: currentRoomPageOrder({ ensureCurrent: false })
     });
   });
 
@@ -2141,11 +2141,12 @@ async function applyRoomState(state) {
   if (!state) return;
   if (state.sessionId) appState.sessionId = state.sessionId;
   const hasUploads = state.uploads && Object.keys(state.uploads).length > 0;
-  const hasFills = state.fills && Object.keys(state.fills).length > 0;
   const hasImageSnapshots = state.imageSnapshots && Object.keys(state.imageSnapshots).length > 0;
-  const hasDrawingSnapshots = state.drawingSnapshots && Object.keys(state.drawingSnapshots).length > 0;
 
-  mergeRoomPages(state.pages, state.pageOrder);
+  appState.fills = state.fills ? { ...state.fills } : {};
+  appState.imageSnapshots = state.imageSnapshots ? { ...state.imageSnapshots } : {};
+  appState.drawingSnapshots = state.drawingSnapshots ? { ...state.drawingSnapshots } : {};
+  replaceRoomPages(state.pages, state.pageOrder);
 
   if (hasUploads) {
     appState.uploads = { ...appState.uploads, ...state.uploads };
@@ -2154,24 +2155,18 @@ async function applyRoomState(state) {
     rebuildTemplateOptions();
   }
 
-  if (state.fills) {
-    appState.fills = { ...appState.fills, ...state.fills };
-  }
-
   if (hasImageSnapshots) {
-    appState.imageSnapshots = { ...appState.imageSnapshots, ...state.imageSnapshots };
     applyImageSnapshots(state.imageSnapshots);
   }
 
-  if (hasDrawingSnapshots) {
-    appState.drawingSnapshots = { ...appState.drawingSnapshots, ...state.drawingSnapshots };
-  }
-
+  const roomPageIds = getStoredRoomPageIds();
   const rememberedPage = getRememberedPage();
-  if (rememberedPage && templates[rememberedPage]) {
+  if (rememberedPage && roomPageIds.includes(rememberedPage) && templates[rememberedPage]) {
     appState.template = rememberedPage;
-  } else if (state.template && templates[state.template] && (state.template !== "cozy" || hasUploads || hasFills || hasImageSnapshots || hasDrawingSnapshots)) {
+  } else if (state.template && roomPageIds.includes(state.template) && templates[state.template]) {
     appState.template = state.template;
+  } else if (roomPageIds.length && templates[roomPageIds[0]]) {
+    appState.template = roomPageIds[0];
   } else if (!templates[appState.template]) {
     appState.template = "cozy";
   }
@@ -2182,6 +2177,24 @@ async function applyRoomState(state) {
   appState.currentPageIndex = getCurrentPageIndex();
   rememberCurrentPage();
   renderTemplate(appState.template);
+}
+
+function replaceRoomPages(pages = {}, pageOrder = []) {
+  appState.pages = {};
+  appState.pageOrder = [];
+  Object.values(pages || {}).forEach((page) => addPageRecord(page, false));
+
+  const ordered = [];
+  (Array.isArray(pageOrder) ? pageOrder : []).forEach((id) => {
+    if (appState.pages[id] && !ordered.includes(id)) ordered.push(id);
+  });
+  Object.keys(appState.pages).forEach((id) => {
+    if (!ordered.includes(id)) ordered.push(id);
+  });
+  appState.pageOrder = ordered;
+  pruneUnusedDefaultStarter();
+  rebuildTemplateCatalog();
+  rebuildTemplateOptions();
 }
 
 function mergeRoomPages(pages = {}, pageOrder = []) {

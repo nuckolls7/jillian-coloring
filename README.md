@@ -30,6 +30,8 @@ Invalid or expired Room IDs show a "Room ID invalid" message instead of opening 
 
 Rooms can now contain multiple pages. Switching pages is local to each person, so one person can stay on one page while someone else opens another page in the same room. The artwork on each page is still shared when people color or draw on that page.
 
+When joining an existing room, the joining device loads the room's shared page list and opens the first real shared page. It should not create a local starter page while the room is loading.
+
 Use the bottom left and bottom right arrows on the canvas to flip through the current room/session pages like a coloring book. Page movement stays in the bottom arrows, not a dropdown.
 
 The **Name** section renames the current page/canvas. Page names are saved with each page and are separate from the original theme/template name.
