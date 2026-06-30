@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Jillian Coloring</title>
-    <link rel="stylesheet" href="styles.css?v=center-title">
+    <link rel="stylesheet" href="styles.css?v=wallpaper-no-progress">
   </head>
   <body>
     <section id="homeView" class="home-screen">
@@ -22,12 +22,20 @@
             <option value="spring">Spring</option>
             <option value="summer">Summer</option>
           </select>
+          <button id="homeArtRoomBtn" class="home-action" type="button">Art Room</button>
         </div>
         <div id="homeJoinPanel" class="home-join-panel" hidden>
           <input id="homeRoomInput" type="text" maxlength="5" spellcheck="false" placeholder="a7k2p">
           <button id="homeJoinSubmit" type="button">Enter Room</button>
           <p id="homeJoinStatus" class="small-note home-join-status"></p>
         </div>
+        <section id="artRoomPanel" class="art-room-panel" hidden>
+          <div class="art-room-header">
+            <strong>Art Room</strong>
+            <button id="artRoomRefreshBtn" type="button">Refresh</button>
+          </div>
+          <div id="savedRoomsList" class="saved-rooms-list"></div>
+        </section>
       </div>
     </section>
 
@@ -106,18 +114,19 @@
         </section>
 
         <section class="panel-section">
-          <label class="field-label" for="templateSelect">Template</label>
-          <select id="templateSelect">
-            <option value="cozy">Cozy Friends</option>
-            <option value="garden">Pocket Garden</option>
-            <option value="snack">Snack Table</option>
-          </select>
+          <label class="field-label" for="pageNameInput">Name</label>
+          <div class="page-name-row">
+            <input id="pageNameInput" type="text" maxlength="80" spellcheck="true" value="Cozy Friends">
+            <button id="savePageNameBtn" type="button">Save</button>
+          </div>
         </section>
 
         <section class="panel-section">
           <label class="field-label" for="uploadPageInput">My Pages</label>
           <label class="import-save wide" for="uploadPageInput">Upload Coloring Page</label>
           <input id="uploadPageInput" class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <button id="blankPageBtn" type="button">New Blank Drawing Page</button>
+          <button id="openThemesBtn" type="button">Add Theme Page</button>
           <button id="deleteUploadBtn" class="danger" type="button">Delete Uploaded Page</button>
           <p class="small-note">Uploaded image pages are saved in this browser.</p>
         </section>
@@ -125,24 +134,28 @@
         <section class="panel-section">
           <div class="tool-grid" role="group" aria-label="Tools">
             <button id="fillTool" class="tool active" type="button" title="Fill">Fill</button>
-            <button id="eraseTool" class="tool" type="button" title="Erase">Erase</button>
+            <button id="drawTool" class="tool" type="button" title="Draw">Draw</button>
+            <button id="drawEraseTool" class="tool" type="button" title="Erase brush strokes">Brush Erase</button>
+            <button id="eraseTool" class="tool" type="button" title="Erase filled areas">Fill Erase</button>
             <button id="pickTool" class="tool" type="button" title="Pick color">Pick</button>
             <button id="undoBtn" class="tool" type="button" title="Undo">Undo</button>
+          </div>
+          <label class="field-label" for="brushSize">Brush Size</label>
+          <div class="brush-row">
+            <input id="brushSize" type="range" min="2" max="64" value="12">
+            <span id="brushSizeText">12 px</span>
           </div>
         </section>
 
         <section class="panel-section">
           <label class="field-label" for="colorPicker">Color</label>
           <input id="colorPicker" type="color" value="#f48fb1">
-          <div id="palette" class="palette" aria-label="Palette"></div>
-        </section>
-
-        <section class="panel-section">
-          <label class="field-label">Progress</label>
-          <div class="progress-track">
-            <span id="progressBar"></span>
+          <div class="palette-head">
+            <button id="palettePrevBtn" type="button" title="Previous palette">&lt;</button>
+            <span id="paletteName">Basic</span>
+            <button id="paletteNextBtn" type="button" title="Next palette">&gt;</button>
           </div>
-          <p id="progressText" class="small-note">0% filled</p>
+          <div id="palette" class="palette" aria-label="Palette"></div>
         </section>
 
         <section class="panel-section actions">
@@ -164,6 +177,11 @@
           <div id="lastAction">Tap a blank space to color it.</div>
         </div>
         <div id="artboard" class="artboard" aria-label="Coloring canvas"></div>
+        <div id="pageNav" class="page-nav" aria-label="Coloring book page navigation" hidden>
+          <button id="pagePrevBtn" class="page-arrow" type="button" title="Previous page" aria-label="Previous page">&lt;</button>
+          <span id="pageCounter" class="page-counter">Page 1 of 1</span>
+          <button id="pageNextBtn" class="page-arrow" type="button" title="Next page" aria-label="Next page">&gt;</button>
+        </div>
       </section>
     </main>
 
@@ -289,6 +307,6 @@
       </svg>
     </template>
 
-    <script src="app.js?v=center-title"></script>
+    <script src="app.js?v=wallpaper-no-progress"></script>
   </body>
 </html>

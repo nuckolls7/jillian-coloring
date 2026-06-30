@@ -27,10 +27,37 @@ let themeCollections = { ...defaultThemeCollections };
 let seasonalTemplates = {};
 let templates = { ...builtInTemplates };
 
-const paletteColors = [
-  "#f48fb1", "#ffcc80", "#fff176", "#9ccc65", "#4db6ac", "#64b5f6",
-  "#9575cd", "#ba68c8", "#ef5350", "#8d6e63", "#90a4ae", "#ffffff"
+const paletteSets = [
+  {
+    name: "Basic",
+    colors: ["#f48fb1", "#ffcc80", "#fff176", "#9ccc65", "#4db6ac", "#64b5f6", "#9575cd", "#ba68c8", "#ef5350", "#8d6e63", "#90a4ae", "#ffffff"]
+  },
+  {
+    name: "Pastels",
+    colors: ["#ffd6e7", "#ffe5c2", "#fff6ba", "#d9f7c5", "#c8f5ec", "#c9e7ff", "#dccdff", "#f2ccff", "#f6d6d0", "#e5d2c6", "#dce6ef", "#fffdf8"]
+  },
+  {
+    name: "Dark Tones",
+    colors: ["#2d1b2f", "#4a2438", "#5a2b2b", "#5c3b20", "#4c4a1f", "#23452e", "#174246", "#1c365c", "#2c2a68", "#3f2f4f", "#2d3138", "#111111"]
+  },
+  {
+    name: "Skin Tones",
+    colors: ["#fff0df", "#f7d8bd", "#edc29d", "#d9a06f", "#bf7d4e", "#9b5f3a", "#774425", "#5a311b", "#3b2116", "#f3c6a8", "#c98f6a", "#8f5737"]
+  },
+  {
+    name: "Nature",
+    colors: ["#315c2b", "#4f7d35", "#76a34d", "#9fca65", "#d6dd7f", "#6b8f71", "#3f7f7a", "#4c9ca8", "#7ab7d8", "#8b6f47", "#c08b52", "#f3d27a"]
+  },
+  {
+    name: "Neon",
+    colors: ["#ff2d95", "#ff5f1f", "#faff00", "#39ff14", "#00ffd5", "#00a3ff", "#7a5cff", "#d400ff", "#ff1744", "#00ff85", "#ffea00", "#ffffff"]
+  }
 ];
+
+const customPaletteSlotCount = 8;
+const customPaletteKey = "jillian-coloring:custom-colors";
+const sessionsKey = "jillian-coloring:sessions";
+const sessionsRecordKey = "sessions";
 
 const roomCodeLength = 5;
 const roomAlphabet = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -44,22 +71,33 @@ let uploadDbPromise = null;
 const appState = {
   template: "cozy",
   room: createRoomCode(),
+  sessionId: createSessionId(),
   roomCreated: false,
   shareBaseUrl: "",
   tool: "fill",
   color: "#f48fb1",
+  brushSize: 12,
+  paletteIndex: 0,
+  customColors: [],
   fills: {},
   uploads: {},
   imageSnapshots: {},
+  drawingSnapshots: {},
+  pages: {},
+  pageOrder: [],
+  currentPageId: "cozy",
+  currentPageIndex: 0,
   uploadImageData: null,
   uploadOriginalData: null,
   uploadSnapshotTimer: null,
+  drawingSnapshotTimer: null,
   undoStack: [],
   clientId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
   eventSource: null,
   online: false,
   serverAvailable: null,
-  syncing: false
+  syncing: false,
+  addingThemePage: false
 };
 
 const els = {
@@ -69,10 +107,14 @@ const els = {
   workspaceView: document.getElementById("workspaceView"),
   homeCustomBtn: document.getElementById("homeCustomBtn"),
   homeJoinBtn: document.getElementById("homeJoinBtn"),
+  homeArtRoomBtn: document.getElementById("homeArtRoomBtn"),
   homeJoinPanel: document.getElementById("homeJoinPanel"),
   homeRoomInput: document.getElementById("homeRoomInput"),
   homeJoinSubmit: document.getElementById("homeJoinSubmit"),
   homeJoinStatus: document.getElementById("homeJoinStatus"),
+  artRoomPanel: document.getElementById("artRoomPanel"),
+  artRoomRefreshBtn: document.getElementById("artRoomRefreshBtn"),
+  savedRoomsList: document.getElementById("savedRoomsList"),
   customBackBtn: document.getElementById("customBackBtn"),
   customHomeBtn: document.getElementById("customHomeBtn"),
   customRoomInput: document.getElementById("customRoomInput"),
@@ -90,13 +132,16 @@ const els = {
   themeTitle: document.getElementById("themeTitle"),
   themeGrid: document.getElementById("themeGrid"),
   artboard: document.getElementById("artboard"),
-  templateSelect: document.getElementById("templateSelect"),
+  pageNav: document.getElementById("pageNav"),
+  pagePrevBtn: document.getElementById("pagePrevBtn"),
+  pageNextBtn: document.getElementById("pageNextBtn"),
+  pageCounter: document.getElementById("pageCounter"),
+  pageNameInput: document.getElementById("pageNameInput"),
+  savePageNameBtn: document.getElementById("savePageNameBtn"),
   templateTitle: document.getElementById("templateTitle"),
   colorPicker: document.getElementById("colorPicker"),
   palette: document.getElementById("palette"),
   saveStatus: document.getElementById("saveStatus"),
-  progressBar: document.getElementById("progressBar"),
-  progressText: document.getElementById("progressText"),
   lastAction: document.getElementById("lastAction"),
   roomInput: document.getElementById("roomInput"),
   roomName: document.getElementById("roomName"),
@@ -108,14 +153,23 @@ const els = {
   connectionDot: document.getElementById("connectionDot"),
   connectionText: document.getElementById("connectionText"),
   fillTool: document.getElementById("fillTool"),
+  drawTool: document.getElementById("drawTool"),
+  drawEraseTool: document.getElementById("drawEraseTool"),
   eraseTool: document.getElementById("eraseTool"),
   pickTool: document.getElementById("pickTool"),
   undoBtn: document.getElementById("undoBtn"),
+  brushSize: document.getElementById("brushSize"),
+  brushSizeText: document.getElementById("brushSizeText"),
+  palettePrevBtn: document.getElementById("palettePrevBtn"),
+  paletteNextBtn: document.getElementById("paletteNextBtn"),
+  paletteName: document.getElementById("paletteName"),
   saveBtn: document.getElementById("saveBtn"),
   exportBtn: document.getElementById("exportBtn"),
   downloadStateBtn: document.getElementById("downloadStateBtn"),
   importStateInput: document.getElementById("importStateInput"),
   uploadPageInput: document.getElementById("uploadPageInput"),
+  blankPageBtn: document.getElementById("blankPageBtn"),
+  openThemesBtn: document.getElementById("openThemesBtn"),
   deleteUploadBtn: document.getElementById("deleteUploadBtn"),
   clearBtn: document.getElementById("clearBtn")
 };
@@ -123,10 +177,12 @@ const els = {
 const saveKey = () => `jillian-coloring:${appState.room}:${appState.template}`;
 const uploadsKey = "jillian-coloring:uploads";
 const regionKey = (template, region) => `${template}:${region}`;
+const selectedPageKey = () => `jillian-coloring:selected-page:${appState.sessionId || appState.room}`;
 
 async function boot() {
   await loadThemePages();
   await loadUploads();
+  loadCustomColors();
   rebuildTemplateOptions();
   clearRememberedRoom();
   resetDraft();
@@ -165,6 +221,9 @@ function bindControls() {
     syncColorControls();
     markActiveSwatch();
   });
+  els.customColorPicker.addEventListener("change", () => {
+    rememberCustomColor(els.customColorPicker.value);
+  });
   els.homeJoinBtn.addEventListener("click", () => {
     els.homeJoinPanel.hidden = !els.homeJoinPanel.hidden;
     if (!els.homeJoinPanel.hidden) {
@@ -173,15 +232,27 @@ function bindControls() {
       els.homeRoomInput.focus();
     }
   });
+  els.homeArtRoomBtn.addEventListener("click", () => {
+    els.artRoomPanel.hidden = !els.artRoomPanel.hidden;
+    if (!els.artRoomPanel.hidden) renderArtRoomList();
+  });
+  els.artRoomRefreshBtn.addEventListener("click", renderArtRoomList);
   els.homeJoinSubmit.addEventListener("click", joinHomeRoom);
   els.homeRoomInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") joinHomeRoom();
   });
   els.homeThemeSelect.addEventListener("change", () => {
     if (!els.homeThemeSelect.value) return;
+    appState.addingThemePage = false;
     location.hash = `theme/${els.homeThemeSelect.value}`;
   });
   els.themeBackBtn.addEventListener("click", () => {
+    if (appState.addingThemePage) {
+      appState.addingThemePage = false;
+      history.pushState(null, "", roomHash());
+      showWorkspace();
+      return;
+    }
     location.hash = "";
   });
   els.workspaceHomeBtn.addEventListener("click", () => {
@@ -189,20 +260,22 @@ function bindControls() {
     showHome();
   });
 
-  els.templateSelect.addEventListener("change", async () => {
-    appState.template = els.templateSelect.value;
-    renderTemplate(appState.template);
-    await ensureCurrentRoom();
-    if (templates[appState.template] && templates[appState.template].type === "image" && appState.uploads[appState.template]) {
-      broadcast({ type: "upload", id: appState.template, page: appState.uploads[appState.template] });
-    }
-    broadcast({ type: "template", template: appState.template });
+  els.savePageNameBtn.addEventListener("click", () => renameCurrentPage());
+  els.pageNameInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    renameCurrentPage();
+    els.pageNameInput.blur();
   });
+  els.pageNameInput.addEventListener("change", () => renameCurrentPage());
 
   els.colorPicker.addEventListener("input", () => {
     appState.color = els.colorPicker.value;
     syncColorControls();
     markActiveSwatch();
+  });
+  els.colorPicker.addEventListener("change", () => {
+    rememberCustomColor(els.colorPicker.value);
   });
 
   els.joinRoomBtn.addEventListener("click", joinWorkspaceRoomId);
@@ -214,8 +287,16 @@ function bindControls() {
   els.newRoomBtn.addEventListener("click", applyWorkspaceRoomId);
   els.copyShareBtn.addEventListener("click", copyShareUrl);
   els.fillTool.addEventListener("click", () => setTool("fill"));
+  els.drawTool.addEventListener("click", () => setTool("draw"));
+  els.drawEraseTool.addEventListener("click", () => setTool("draw-erase"));
   els.eraseTool.addEventListener("click", () => setTool("erase"));
   els.pickTool.addEventListener("click", () => setTool("pick"));
+  els.brushSize.addEventListener("input", () => {
+    appState.brushSize = Number(els.brushSize.value) || 12;
+    els.brushSizeText.textContent = `${appState.brushSize} px`;
+  });
+  els.palettePrevBtn.addEventListener("click", () => switchPalette(-1));
+  els.paletteNextBtn.addEventListener("click", () => switchPalette(1));
   els.undoBtn.addEventListener("click", undo);
   els.saveBtn.addEventListener("click", saveCurrentWork);
   els.exportBtn.addEventListener("click", downloadPng);
@@ -227,6 +308,14 @@ function bindControls() {
   });
   els.customUploadPageInput.addEventListener("change", importColoringPage);
   els.uploadPageInput.addEventListener("change", importColoringPage);
+  els.blankPageBtn.addEventListener("click", createBlankDrawingPage);
+  els.openThemesBtn.addEventListener("click", () => {
+    appState.addingThemePage = true;
+    history.pushState(null, "", "#theme/all");
+    showTheme("all");
+  });
+  els.pagePrevBtn.addEventListener("click", () => turnPage(-1));
+  els.pageNextBtn.addEventListener("click", () => turnPage(1));
   els.deleteUploadBtn.addEventListener("click", deleteUploadedPage);
   els.clearBtn.addEventListener("click", clearColors);
 
@@ -266,15 +355,18 @@ async function routeFromHash() {
 }
 
 function showHome() {
+  appState.addingThemePage = false;
   leaveCurrentRoomForMenu();
   els.homeView.hidden = false;
   els.customView.hidden = true;
   els.themeView.hidden = true;
   els.workspaceView.hidden = true;
   els.homeThemeSelect.value = "";
+  if (!els.artRoomPanel.hidden) renderArtRoomList();
 }
 
 function showCustom() {
+  appState.addingThemePage = false;
   leaveCurrentRoomForMenu();
   els.homeView.hidden = true;
   els.customView.hidden = false;
@@ -328,7 +420,10 @@ async function applyWorkspaceRoomId() {
 
 function setRoom(room) {
   const nextRoom = normalizeRoom(room) || createRoomCode();
-  if (appState.room !== nextRoom) appState.roomCreated = false;
+  if (appState.room !== nextRoom) {
+    appState.roomCreated = false;
+    appState.sessionId = createSessionId();
+  }
   appState.room = nextRoom;
   els.roomInput.value = nextRoom;
   els.customRoomInput.value = nextRoom;
@@ -337,34 +432,53 @@ function setRoom(room) {
 }
 
 function showTheme(theme) {
-  leaveCurrentRoomForMenu();
-  const pages = themeCollections[theme] || themeCollections.winter;
+  const addToCurrentRoom = appState.addingThemePage;
+  if (!addToCurrentRoom) leaveCurrentRoomForMenu();
+  const categories = getThemeLibrarySections();
   els.homeView.hidden = true;
   els.customView.hidden = true;
   els.themeView.hidden = false;
   els.workspaceView.hidden = true;
-  els.themeTitle.textContent = `${capitalize(theme)} Pages`;
+  els.themeTitle.textContent = "Theme Pages";
   els.themeGrid.innerHTML = "";
 
-  pages.forEach((page) => {
-    const template = templates[page.template] || builtInTemplates[page.template];
-    if (!template) return;
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "theme-card";
-    const preview = createThemePreview(template);
-    const title = document.createElement("strong");
-    title.textContent = page.title;
-    card.append(preview, title);
-    card.addEventListener("click", async () => {
-      appState.template = page.template;
-      renderTemplate(appState.template);
-      await ensureCurrentRoom();
-      await broadcast({ type: "template", template: appState.template });
-      showWorkspace(true);
+  categories.forEach((section) => {
+    if (!section.pages.length) return;
+    const heading = document.createElement("h2");
+    heading.className = "theme-section-title";
+    heading.textContent = `${capitalize(section.theme)} Pages`;
+    els.themeGrid.appendChild(heading);
+
+    section.pages.forEach((page) => {
+      const template = templates[page.template] || builtInTemplates[page.template] || seasonalTemplates[page.template];
+      if (!template) return;
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "theme-card";
+      const preview = createThemePreview(template);
+      const title = document.createElement("strong");
+      title.textContent = page.title;
+      card.append(preview, title);
+      card.addEventListener("click", async () => {
+        if (addToCurrentRoom) {
+          await addThemePageToRoom(page.template, page.title);
+          appState.addingThemePage = false;
+        } else {
+          await addThemePageToRoom(page.template, page.title, { replaceStarter: true });
+        }
+        showWorkspace(true);
+      });
+      els.themeGrid.appendChild(card);
     });
-    els.themeGrid.appendChild(card);
   });
+}
+
+function getThemeLibrarySections() {
+  const themeNames = ["winter", "fall", "spring", "summer"];
+  return themeNames.map((theme) => ({
+    theme,
+    pages: themeCollections[theme] || defaultThemeCollections[theme] || []
+  }));
 }
 
 function createThemePreview(template) {
@@ -405,6 +519,11 @@ function normalizeRoom(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, roomCodeLength);
 }
 
+function createSessionId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return `session-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function getRoomFromLocation() {
   const hash = location.hash.replace(/^#/, "");
   if (hash.startsWith("room/")) return normalizeRoom(hash.split("/")[1]);
@@ -435,21 +554,333 @@ function clearRememberedRoom() {
 
 function resetDraft() {
   appState.fills = {};
+  appState.imageSnapshots = {};
+  appState.drawingSnapshots = {};
+  appState.pages = {};
+  appState.pageOrder = [];
   appState.undoStack = [];
 }
 
 function currentRoomUploads() {
-  const template = templates[appState.template];
-  if (!template || template.type !== "image" || !appState.uploads[appState.template]) return {};
-  return { [appState.template]: appState.uploads[appState.template] };
+  const pageIds = new Set([...appState.pageOrder, ...Object.keys(appState.pages), appState.template]);
+  return Object.fromEntries(
+    Object.entries(appState.uploads).filter(([id]) => pageIds.has(id))
+  );
 }
 
 function currentImageSnapshots() {
-  const template = templates[appState.template];
-  if (!template || template.type !== "image") return {};
+  return Object.fromEntries(
+    Object.entries(appState.imageSnapshots).filter(([, dataUrl]) => Boolean(dataUrl))
+  );
+}
 
-  const coloredDataUrl = template.coloredDataUrl || appState.imageSnapshots[appState.template] || "";
-  return coloredDataUrl ? { [appState.template]: coloredDataUrl } : {};
+function currentDrawingSnapshots() {
+  return Object.fromEntries(
+    Object.entries(appState.drawingSnapshots).filter(([, dataUrl]) => Boolean(dataUrl))
+  );
+}
+
+function currentRoomPages() {
+  ensurePageRecord(appState.template);
+  return { ...appState.pages };
+}
+
+function currentRoomPageOrder() {
+  ensurePageRecord(appState.template);
+  return getRoomPageIds();
+}
+
+function createPageId(prefix = "page", source = "") {
+  const cleanSource = String(source || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 18);
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  return [prefix, cleanSource, suffix].filter(Boolean).join("-");
+}
+
+function getStoredRoomPageIds() {
+  const seen = new Set();
+  const ids = [];
+  appState.pageOrder.forEach((id) => {
+    if (seen.has(id)) return;
+    if (!templates[id] && !appState.pages[id]) return;
+    seen.add(id);
+    ids.push(id);
+  });
+  Object.keys(appState.pages).forEach((id) => {
+    if (seen.has(id)) return;
+    if (!templates[id] && !appState.pages[id]) return;
+    seen.add(id);
+    ids.push(id);
+  });
+  return ids;
+}
+
+function getRoomPageIds() {
+  const seen = new Set();
+  const ids = [];
+  if (templates[appState.template]) ensurePageRecord(appState.template);
+
+  appState.pageOrder.forEach((id) => {
+    if (seen.has(id)) return;
+    if (!templates[id] && !appState.pages[id]) return;
+    seen.add(id);
+    ids.push(id);
+  });
+
+  if (templates[appState.template] && !seen.has(appState.template)) {
+    ensurePageRecord(appState.template);
+    ids.push(appState.template);
+  }
+
+  return ids;
+}
+
+function pageRecordFromTemplate(id) {
+  const template = templates[id];
+  if (!template) return null;
+  return {
+    id,
+    title: template.title || "Coloring Page",
+    type: template.type || "svg",
+    templateId: template.templateId || "",
+    sourceTemplateId: template.sourceTemplateId || id,
+    sourceTitle: template.sourceTitle || template.title || "",
+    dataUrl: template.type === "image" ? template.dataUrl || "" : "",
+    createdAt: new Date().toISOString()
+  };
+}
+
+function pageRecordFromSourceTemplate(sourceId, title = "") {
+  const source = templates[sourceId] || builtInTemplates[sourceId] || seasonalTemplates[sourceId];
+  if (!source) return null;
+  const pageTitle = title || source.title || "Coloring Page";
+  const page = {
+    id: createPageId("page", sourceId),
+    title: pageTitle,
+    type: source.type || "svg",
+    templateId: source.templateId || "",
+    sourceTemplateId: source.sourceTemplateId || sourceId,
+    sourceTitle: source.sourceTitle || source.title || pageTitle,
+    dataUrl: source.type === "image" ? source.dataUrl || "" : "",
+    createdAt: new Date().toISOString()
+  };
+  if (source.type === "image") page.coloredDataUrl = "";
+  return page;
+}
+
+function addPageRecord(page, rebuild = true) {
+  if (!page || !page.id) return null;
+  const id = String(page.id);
+  const normalized = {
+    ...appState.pages[id],
+    ...page,
+    id,
+    title: page.title || appState.pages[id]?.title || "Coloring Page",
+    type: page.type || appState.pages[id]?.type || "svg"
+  };
+  appState.pages[id] = normalized;
+  if (!appState.pageOrder.includes(id)) appState.pageOrder.push(id);
+
+  if (normalized.type === "image" && normalized.dataUrl && id.startsWith("upload-") && !appState.uploads[id]) {
+    appState.uploads[id] = {
+      title: normalized.title,
+      dataUrl: normalized.dataUrl,
+      coloredDataUrl: appState.imageSnapshots[id] || ""
+    };
+  }
+
+  if (rebuild) {
+    rebuildTemplateCatalog();
+    rebuildTemplateOptions();
+  }
+  return normalized;
+}
+
+function hasPageArtwork(id) {
+  const hasFills = Object.keys(appState.fills).some((key) => key.startsWith(`${id}:`));
+  return Boolean(
+    hasFills ||
+    appState.imageSnapshots[id] ||
+    appState.drawingSnapshots[id] ||
+    appState.uploads[id]?.coloredDataUrl
+  );
+}
+
+function canReplaceDefaultStarter(nextId) {
+  const ids = getStoredRoomPageIds();
+  return ids.length === 1 && ids[0] === "cozy" && nextId !== "cozy" && !hasPageArtwork("cozy");
+}
+
+function canUseAsSingleStarter(nextId) {
+  return getStoredRoomPageIds().length === 0 || canReplaceDefaultStarter(nextId);
+}
+
+function pruneUnusedDefaultStarter() {
+  const ids = getStoredRoomPageIds();
+  if (ids.length <= 1 || appState.template === "cozy" || !ids.includes("cozy") || hasPageArtwork("cozy")) return;
+  delete appState.pages.cozy;
+  appState.pageOrder = appState.pageOrder.filter((id) => id !== "cozy");
+}
+
+function setSingleStarterPage(page) {
+  if (!page || !page.id) return;
+  appState.pages = {};
+  appState.pageOrder = [];
+  addPageRecord(page, false);
+}
+
+function ensurePageRecord(id) {
+  if (appState.pages[id]) return appState.pages[id];
+  const page = pageRecordFromTemplate(id);
+  return page ? addPageRecord(page, false) : null;
+}
+
+async function sharePageRecord(id = appState.template) {
+  const page = ensurePageRecord(id);
+  if (!page || !(await ensureCurrentRoom())) return false;
+  await broadcast({ type: "page-add", page });
+  if (page.type === "image" && appState.uploads[id]) {
+    await broadcast({ type: "upload", id, page: appState.uploads[id] });
+  }
+  if (appState.drawingSnapshots[id]) {
+    await broadcast({ type: "drawing-progress", template: id, dataUrl: appState.drawingSnapshots[id] });
+  }
+  return true;
+}
+
+async function choosePage(id, options = {}) {
+  if (!templates[id]) return false;
+  const page = pageRecordFromTemplate(id);
+  if (options.replaceStarter && page && canReplaceDefaultStarter(id)) {
+    setSingleStarterPage(page);
+  } else {
+    ensurePageRecord(id);
+  }
+  appState.template = id;
+  appState.currentPageId = id;
+  appState.currentPageIndex = getCurrentPageIndex();
+  pruneUnusedDefaultStarter();
+  appState.currentPageIndex = getCurrentPageIndex();
+  rememberCurrentPage();
+  renderTemplate(appState.template);
+  rebuildTemplateOptions();
+  if (options.sharePage) await sharePageRecord(id);
+  return true;
+}
+
+async function addThemePageToRoom(sourceId, title, options = {}) {
+  const page = pageRecordFromSourceTemplate(sourceId, title);
+  if (!page) return false;
+
+  if (options.replaceStarter && canUseAsSingleStarter(page.id)) {
+    setSingleStarterPage(page);
+  } else {
+    addPageRecord(page, false);
+  }
+
+  rebuildTemplateCatalog();
+  rebuildTemplateOptions();
+  await choosePage(page.id);
+  if (await ensureCurrentRoom()) await broadcast({ type: "page-add", page: appState.pages[page.id] || page });
+  setStatus(`${getPageTitle(page.id)} added`);
+  return true;
+}
+
+function getPageTitle(id = appState.template) {
+  return appState.pages[id]?.title || templates[id]?.title || "Coloring Page";
+}
+
+function normalizePageTitle(value, fallback = "Coloring Page") {
+  const title = String(value || "").trim().replace(/\s+/g, " ").slice(0, 80);
+  return title || fallback;
+}
+
+function applyPageTitle(id, title, options = {}) {
+  if (!templates[id] && !appState.pages[id]) return false;
+  const fallback = getPageTitle(id);
+  const nextTitle = normalizePageTitle(title, fallback);
+  const page = ensurePageRecord(id);
+  if (!page) return false;
+
+  page.title = nextTitle;
+  appState.pages[id] = page;
+  if (appState.uploads[id]) appState.uploads[id].title = nextTitle;
+  if (templates[id]) templates[id].title = nextTitle;
+  rebuildTemplateCatalog();
+  rebuildTemplateOptions();
+
+  if (id === appState.template) {
+    els.templateTitle.textContent = nextTitle;
+    els.pageNameInput.value = nextTitle;
+  }
+
+  if (!options.silent) setStatus("Page name saved");
+  return true;
+}
+
+async function renameCurrentPage() {
+  const id = appState.template;
+  const currentTitle = getPageTitle(id);
+  const nextTitle = normalizePageTitle(els.pageNameInput.value, currentTitle);
+  if (nextTitle === currentTitle) {
+    els.pageNameInput.value = currentTitle;
+    return;
+  }
+
+  if (!applyPageTitle(id, nextTitle)) return;
+  await saveLocalSession();
+  if (await ensureCurrentRoom()) await broadcast({ type: "page-rename", id, title: nextTitle });
+}
+
+function rememberCurrentPage() {
+  try {
+    localStorage.setItem(selectedPageKey(), appState.template);
+    localStorage.setItem(`${selectedPageKey()}:index`, String(appState.currentPageIndex));
+  } catch {
+    // Current-page memory is a convenience only.
+  }
+}
+
+function getRememberedPage() {
+  try {
+    return localStorage.getItem(selectedPageKey());
+  } catch {
+    return "";
+  }
+}
+
+function getCurrentPageIndex() {
+  const ids = getRoomPageIds();
+  const index = ids.indexOf(appState.template);
+  return index === -1 ? 0 : index;
+}
+
+async function turnPage(direction) {
+  const ids = getRoomPageIds();
+  if (!ids.length) return;
+  const currentIndex = getCurrentPageIndex();
+  const nextIndex = clamp(currentIndex + direction, 0, ids.length - 1);
+  if (nextIndex === currentIndex) return;
+  await choosePage(ids[nextIndex]);
+}
+
+function updatePageNavControls() {
+  const ids = getRoomPageIds();
+  const index = ids.indexOf(appState.template);
+  const safeIndex = index === -1 ? 0 : index;
+  appState.currentPageId = appState.template;
+  appState.currentPageIndex = safeIndex;
+
+  const total = ids.length || 1;
+  els.pageNav.hidden = total <= 1;
+  els.pageCounter.textContent = `Page ${safeIndex + 1} of ${total}`;
+  els.pagePrevBtn.disabled = safeIndex <= 0;
+  els.pageNextBtn.disabled = safeIndex >= ids.length - 1;
+  els.pagePrevBtn.title = safeIndex > 0 && templates[ids[safeIndex - 1]]
+    ? `Previous: ${templates[ids[safeIndex - 1]].title}`
+    : "Previous page";
+  els.pageNextBtn.title = safeIndex < ids.length - 1 && templates[ids[safeIndex + 1]]
+    ? `Next: ${templates[ids[safeIndex + 1]].title}`
+    : "Next page";
 }
 
 async function createRoom(room = appState.room, statusEl = null) {
@@ -463,10 +894,14 @@ async function createRoom(room = appState.room, statusEl = null) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         room: targetRoom,
+        sessionId: appState.sessionId,
         template: appState.template,
         fills: appState.fills,
         uploads: currentRoomUploads(),
-        imageSnapshots: currentImageSnapshots()
+        imageSnapshots: currentImageSnapshots(),
+        drawingSnapshots: currentDrawingSnapshots(),
+        pages: currentRoomPages(),
+        pageOrder: currentRoomPageOrder()
       })
     });
 
@@ -575,17 +1010,22 @@ function showCollaborationProblem(statusEl, text) {
 
 async function saveCurrentWork() {
   saveDraft(true);
+  await saveLocalSession();
   if (!(await ensureCurrentRoom())) {
-    setStatus("Room could not be saved");
+    setStatus("Saved in Art Room; room could not be saved");
     return;
   }
 
   await broadcast({
     type: "hello",
+    sessionId: appState.sessionId,
     template: appState.template,
     fills: appState.fills,
     uploads: currentRoomUploads(),
-    imageSnapshots: currentImageSnapshots()
+    imageSnapshots: currentImageSnapshots(),
+    drawingSnapshots: currentDrawingSnapshots(),
+    pages: currentRoomPages(),
+    pageOrder: currentRoomPageOrder()
   });
 
   try {
@@ -713,6 +1153,42 @@ function rebuildTemplateCatalog() {
     };
   });
 
+  Object.entries(appState.pages).forEach(([id, page]) => {
+    if (!page || !page.type) return;
+    if (page.type === "svg") {
+      const source = builtInTemplates[page.sourceTemplateId] || builtInTemplates[id] || templates[page.sourceTemplateId] || templates[id];
+      const templateId = page.templateId || source?.templateId || "";
+      if (templateId) {
+        templates[id] = {
+          id,
+          title: page.title || source?.title || "Coloring Page",
+          type: "svg",
+          templateId,
+          sourceTemplateId: page.sourceTemplateId || id,
+          sourceTitle: page.sourceTitle || source?.title || ""
+        };
+      } else if (templates[id]) {
+        templates[id] = { ...templates[id], title: page.title || templates[id].title };
+      }
+    }
+    if (page.type === "drawing") {
+      templates[id] = {
+        id,
+        title: page.title || "Blank Drawing Page",
+        type: "drawing"
+      };
+    }
+    if (page.type === "image" && page.dataUrl) {
+      templates[id] = {
+        id,
+        title: page.title || "Uploaded Page",
+        type: "image",
+        dataUrl: page.dataUrl,
+        coloredDataUrl: appState.imageSnapshots[id] || page.coloredDataUrl || ""
+      };
+    }
+  });
+
   Object.entries(appState.imageSnapshots).forEach(([id, coloredDataUrl]) => {
     if (templates[id] && templates[id].type === "image") templates[id].coloredDataUrl = coloredDataUrl || "";
   });
@@ -760,6 +1236,120 @@ async function readUploads() {
   return {};
 }
 
+async function readSavedSessions() {
+  try {
+    const saved = await readRecordFromDb(sessionsRecordKey);
+    if (saved && typeof saved === "object") return saved;
+  } catch {
+    // Fall through to localStorage.
+  }
+
+  return readJson(localStorage.getItem(sessionsKey)) || {};
+}
+
+async function writeSavedSessions(sessions) {
+  try {
+    await writeRecordToDb(sessionsRecordKey, sessions);
+    localStorage.removeItem(sessionsKey);
+    return true;
+  } catch {
+    try {
+      localStorage.setItem(sessionsKey, JSON.stringify(sessions));
+      return true;
+    } catch {
+      setStatus("Art Room storage is full");
+      return false;
+    }
+  }
+}
+
+function buildSessionPayload() {
+  ensurePageRecord(appState.template);
+  const savedAt = new Date().toISOString();
+  return {
+    sessionId: appState.sessionId,
+    roomCode: appState.room,
+    title: templates[appState.template]?.title || "Jillian Coloring Room",
+    currentPageId: appState.template,
+    currentPageIndex: getCurrentPageIndex(),
+    savedAt,
+    pages: currentRoomPages(),
+    pageOrder: currentRoomPageOrder(),
+    fills: appState.fills,
+    uploads: currentRoomUploads(),
+    imageSnapshots: currentImageSnapshots(),
+    drawingSnapshots: currentDrawingSnapshots()
+  };
+}
+
+async function saveLocalSession() {
+  const sessions = await readSavedSessions();
+  sessions[appState.sessionId] = buildSessionPayload();
+  const saved = await writeSavedSessions(sessions);
+  if (saved && !els.artRoomPanel.hidden) renderArtRoomList();
+  return saved;
+}
+
+async function renderArtRoomList() {
+  const sessions = await readSavedSessions();
+  const items = Object.values(sessions).sort((a, b) => String(b.savedAt || "").localeCompare(String(a.savedAt || "")));
+  els.savedRoomsList.innerHTML = "";
+
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "small-note";
+    empty.textContent = "Saved rooms will show up here after you press Save.";
+    els.savedRoomsList.appendChild(empty);
+    return;
+  }
+
+  items.forEach((session) => {
+    const row = document.createElement("div");
+    row.className = "saved-room";
+    const info = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = session.title || "Saved Coloring Room";
+    const meta = document.createElement("span");
+    const savedAt = session.savedAt ? new Date(session.savedAt).toLocaleString() : "Saved";
+    meta.textContent = `Room ${session.roomCode || "new"} - ${savedAt}`;
+    info.append(title, meta);
+
+    const open = document.createElement("button");
+    open.type = "button";
+    open.textContent = "Open";
+    open.addEventListener("click", () => openSavedSession(session));
+    row.append(info, open);
+    els.savedRoomsList.appendChild(row);
+  });
+}
+
+async function openSavedSession(session) {
+  if (!session) return;
+  resetDraft();
+  const restoredSessionId = session.sessionId || createSessionId();
+  setRoom(session.roomCode || createRoomCode());
+  appState.sessionId = restoredSessionId;
+  appState.fills = session.fills || {};
+  appState.imageSnapshots = session.imageSnapshots || {};
+  appState.drawingSnapshots = session.drawingSnapshots || {};
+  appState.pages = session.pages || {};
+  appState.pageOrder = Array.isArray(session.pageOrder) ? session.pageOrder : Object.keys(appState.pages);
+  appState.uploads = { ...appState.uploads, ...(session.uploads || {}) };
+  await saveUploads();
+  await loadUploads();
+  mergeRoomPages(appState.pages, appState.pageOrder);
+  const restoredIds = getRoomPageIds();
+  const indexedPage = restoredIds[Number(session.currentPageIndex) || 0];
+  const pageId = session.currentPageId && templates[session.currentPageId] ? session.currentPageId : indexedPage || "cozy";
+  appState.template = pageId;
+  appState.currentPageId = pageId;
+  appState.currentPageIndex = getCurrentPageIndex();
+  rememberCurrentPage();
+  await createRoom(appState.room);
+  showWorkspace(true);
+  setStatus("Opened saved Art Room session");
+}
+
 function getUploadDb() {
   if (!("indexedDB" in window)) return Promise.reject(new Error("IndexedDB is unavailable"));
   if (uploadDbPromise) return uploadDbPromise;
@@ -800,40 +1390,113 @@ async function writeUploadsToDb(uploads) {
   });
 }
 
-function rebuildTemplateOptions() {
-  els.templateSelect.innerHTML = "";
-  Object.entries(templates).forEach(([id, template]) => {
-    const option = document.createElement("option");
-    option.value = id;
-    option.textContent = template.title;
-    els.templateSelect.appendChild(option);
+async function readRecordFromDb(key) {
+  const db = await getUploadDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(uploadStoreName, "readonly");
+    const request = transaction.objectStore(uploadStoreName).get(key);
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Could not read saved data"));
   });
+}
+
+async function writeRecordToDb(key, value) {
+  const db = await getUploadDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(uploadStoreName, "readwrite");
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error("Could not save data"));
+    transaction.objectStore(uploadStoreName).put(value, key);
+  });
+}
+
+function rebuildTemplateOptions() {
+  updatePageNavControls();
 }
 
 function buildPalette() {
   els.palette.innerHTML = "";
   els.customPalette.innerHTML = "";
-  paletteColors.forEach((color) => {
+  const palette = paletteSets[appState.paletteIndex] || paletteSets[0];
+  els.paletteName.textContent = palette.name;
+  palette.colors.forEach((color) => {
     els.palette.appendChild(createSwatch(color));
     els.customPalette.appendChild(createSwatch(color));
+  });
+  getCustomSlots().forEach((color, index) => {
+    els.palette.appendChild(createSwatch(color, index));
+    els.customPalette.appendChild(createSwatch(color, index));
   });
   syncColorControls();
   markActiveSwatch();
 }
 
-function createSwatch(color) {
+function createSwatch(color, customIndex = null) {
   const swatch = document.createElement("button");
   swatch.type = "button";
   swatch.className = "swatch";
-  swatch.title = color === "#ffffff" ? "White" : color;
-  swatch.style.background = color;
+  if (!color) {
+    swatch.classList.add("empty");
+    swatch.title = "Save current custom color here";
+  } else {
+    swatch.title = color === "#ffffff" ? "White" : color;
+    swatch.style.background = color;
+  }
   swatch.addEventListener("click", () => {
+    if (!color && customIndex !== null) {
+      setCustomColorSlot(customIndex, appState.color);
+      return;
+    }
+    if (!color) return;
     appState.color = color;
     syncColorControls();
     markActiveSwatch();
-    setTool("fill");
+    if (appState.tool === "draw-erase") setTool("draw");
+    else if (!isDrawingTool()) setTool("fill");
   });
   return swatch;
+}
+
+function switchPalette(direction) {
+  appState.paletteIndex = (appState.paletteIndex + direction + paletteSets.length) % paletteSets.length;
+  buildPalette();
+}
+
+function loadCustomColors() {
+  const saved = readJson(localStorage.getItem(customPaletteKey));
+  appState.customColors = Array.isArray(saved) ? saved.slice(0, customPaletteSlotCount) : [];
+  while (appState.customColors.length < customPaletteSlotCount) appState.customColors.push("");
+}
+
+function getCustomSlots() {
+  while (appState.customColors.length < customPaletteSlotCount) appState.customColors.push("");
+  return appState.customColors.slice(0, customPaletteSlotCount);
+}
+
+function setCustomColorSlot(index, color) {
+  if (!/^#[0-9a-f]{6}$/i.test(color || "")) return;
+  appState.customColors[index] = color.toLowerCase();
+  saveCustomColors();
+  buildPalette();
+  setStatus("Custom color saved");
+}
+
+function rememberCustomColor(color) {
+  if (!/^#[0-9a-f]{6}$/i.test(color || "")) return;
+  const normalized = color.toLowerCase();
+  if (appState.customColors.includes(normalized)) return;
+  const index = appState.customColors.findIndex((slot) => !slot);
+  setCustomColorSlot(index === -1 ? 0 : index, normalized);
+}
+
+function saveCustomColors() {
+  try {
+    localStorage.setItem(customPaletteKey, JSON.stringify(getCustomSlots()));
+  } catch {
+    // Custom palette storage is best-effort.
+  }
 }
 
 function syncColorControls() {
@@ -855,17 +1518,26 @@ function renderTemplate(templateName) {
     return;
   }
 
-  els.templateTitle.textContent = config.title;
-  els.templateSelect.value = templateName;
-  els.deleteUploadBtn.disabled = config.type !== "image";
+  const pageTitle = getPageTitle(templateName);
+  els.templateTitle.textContent = pageTitle;
+  els.pageNameInput.value = pageTitle;
+  els.deleteUploadBtn.disabled = !(config.type === "image" && appState.uploads[templateName] && templateName.startsWith("upload-"));
+  updatePageNavControls();
 
   if (config.type === "image") {
     renderUploadedPage(config);
     return;
   }
 
+  if (config.type === "drawing") {
+    renderBlankDrawingPage(config);
+    return;
+  }
+
   const template = document.getElementById(config.templateId);
-  els.artboard.replaceChildren(template.content.firstElementChild.cloneNode(true));
+  const frame = createPageFrame();
+  frame.appendChild(template.content.firstElementChild.cloneNode(true));
+  els.artboard.replaceChildren(frame);
   appState.uploadImageData = null;
   appState.uploadOriginalData = null;
   applyFills();
@@ -874,13 +1546,16 @@ function renderTemplate(templateName) {
   els.artboard.querySelectorAll("[data-region]").forEach((region) => {
     region.addEventListener("click", () => handleRegionClick(region));
   });
+  setupDrawingLayer(frame, 900, 900);
 }
 
 function renderUploadedPage(config) {
   const canvas = document.createElement("canvas");
-  canvas.className = "coloring-page upload-canvas";
+  const frame = createPageFrame();
+  canvas.className = "coloring-page upload-canvas base-canvas";
   canvas.setAttribute("aria-label", `${config.title} coloring canvas`);
-  els.artboard.replaceChildren(canvas);
+  frame.appendChild(canvas);
+  els.artboard.replaceChildren(frame);
   appState.uploadImageData = null;
   appState.uploadOriginalData = null;
 
@@ -891,6 +1566,7 @@ function renderUploadedPage(config) {
     canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
     canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
     canvas.style.aspectRatio = `${canvas.width} / ${canvas.height}`;
+    frame.style.aspectRatio = `${canvas.width} / ${canvas.height}`;
 
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     ctx.fillStyle = "#ffffff";
@@ -905,11 +1581,13 @@ function renderUploadedPage(config) {
         ctx.drawImage(colored, 0, 0, canvas.width, canvas.height);
         appState.uploadImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         updateProgress();
+        setupDrawingLayer(frame, canvas.width, canvas.height);
       };
       colored.src = savedSnapshot;
     } else {
       appState.uploadImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       updateProgress();
+      setupDrawingLayer(frame, canvas.width, canvas.height);
     }
   };
   img.src = config.dataUrl;
@@ -917,7 +1595,181 @@ function renderUploadedPage(config) {
   canvas.addEventListener("click", (event) => handleCanvasClick(event, canvas));
 }
 
+function renderBlankDrawingPage(config) {
+  const frame = createPageFrame();
+  const canvas = document.createElement("canvas");
+  canvas.className = "coloring-page base-canvas";
+  canvas.width = 900;
+  canvas.height = 900;
+  canvas.setAttribute("aria-label", `${config.title} blank drawing canvas`);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fffdf8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  frame.appendChild(canvas);
+  els.artboard.replaceChildren(frame);
+  appState.uploadImageData = null;
+  appState.uploadOriginalData = null;
+  setupDrawingLayer(frame, canvas.width, canvas.height);
+  if (appState.tool !== "draw" && appState.tool !== "draw-erase") setTool("draw");
+}
+
+function createPageFrame() {
+  const frame = document.createElement("div");
+  frame.className = "page-stack";
+  return frame;
+}
+
+function setupDrawingLayer(frame, width, height) {
+  frame.querySelector(".drawing-layer")?.remove();
+  const canvas = document.createElement("canvas");
+  canvas.className = "drawing-layer";
+  canvas.width = width;
+  canvas.height = height;
+  canvas.dataset.template = appState.template;
+  frame.appendChild(canvas);
+  paintDrawingLayerFromDataUrl(appState.drawingSnapshots[appState.template] || "", canvas);
+  bindDrawingLayer(canvas);
+  updateDrawingLayerMode();
+}
+
+function bindDrawingLayer(canvas) {
+  let drawing = false;
+  let lastPoint = null;
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (!isDrawingTool()) return;
+    event.preventDefault();
+    drawing = true;
+    lastPoint = getCanvasPoint(event, canvas);
+    const before = canvas.toDataURL("image/png");
+    appState.undoStack.push({ drawing: true, template: appState.template, before });
+    canvas.setPointerCapture(event.pointerId);
+    drawStrokeSegment(canvas, lastPoint, lastPoint);
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    if (!drawing || !lastPoint) return;
+    event.preventDefault();
+    const nextPoint = getCanvasPoint(event, canvas);
+    drawStrokeSegment(canvas, lastPoint, nextPoint);
+    lastPoint = nextPoint;
+  });
+
+  const finish = (event) => {
+    if (!drawing) return;
+    event.preventDefault();
+    drawing = false;
+    lastPoint = null;
+    saveDrawingLayer(canvas, true);
+  };
+
+  canvas.addEventListener("pointerup", finish);
+  canvas.addEventListener("pointercancel", finish);
+  canvas.addEventListener("pointerleave", finish);
+}
+
+function isDrawingTool() {
+  return appState.tool === "draw" || appState.tool === "draw-erase";
+}
+
+function updateDrawingLayerMode() {
+  els.artboard.classList.toggle("drawing-active", isDrawingTool());
+}
+
+function drawStrokeSegment(canvas, from, to) {
+  const ctx = canvas.getContext("2d");
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = appState.brushSize;
+  if (appState.tool === "draw-erase") {
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.strokeStyle = "rgba(0,0,0,1)";
+  } else {
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = appState.color;
+  }
+  if (Math.abs(from.x - to.x) < 0.01 && Math.abs(from.y - to.y) < 0.01) {
+    ctx.beginPath();
+    ctx.arc(from.x, from.y, appState.brushSize / 2, 0, Math.PI * 2);
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function getCanvasPoint(event, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * (canvas.width / rect.width),
+    y: (event.clientY - rect.top) * (canvas.height / rect.height)
+  };
+}
+
+function saveDrawingLayer(canvas = getDrawingCanvas(), shareWithRoom = false) {
+  if (!canvas) return;
+  const dataUrl = canvas.toDataURL("image/png");
+  if (isCanvasBlank(canvas)) {
+    delete appState.drawingSnapshots[appState.template];
+  } else {
+    appState.drawingSnapshots[appState.template] = dataUrl;
+  }
+  if (shareWithRoom) queueDrawingProgressSnapshot();
+}
+
+function queueDrawingProgressSnapshot() {
+  clearTimeout(appState.drawingSnapshotTimer);
+  appState.drawingSnapshotTimer = setTimeout(() => {
+    const canvas = getDrawingCanvas();
+    if (!canvas) return;
+    const dataUrl = appState.drawingSnapshots[appState.template] || "";
+    broadcast({ type: "drawing-progress", template: appState.template, dataUrl });
+  }, 160);
+}
+
+function paintDrawingLayerFromDataUrl(dataUrl, canvas = getDrawingCanvas()) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!dataUrl) return;
+  const img = new Image();
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  };
+  img.src = dataUrl;
+}
+
+function clearDrawingLayer() {
+  const canvas = getDrawingCanvas();
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function getDrawingCanvas() {
+  return els.artboard.querySelector(".drawing-layer");
+}
+
+function getBaseCanvas() {
+  return els.artboard.querySelector(".base-canvas, .upload-canvas");
+}
+
+function isCanvasBlank(canvas) {
+  const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let index = 3; index < data.length; index += 4) {
+    if (data[index] !== 0) return false;
+  }
+  return true;
+}
+
 function handleRegionClick(region) {
+  if (isDrawingTool()) return;
   const id = region.dataset.region;
   const key = regionKey(appState.template, id);
   const previous = appState.fills[key] || "";
@@ -925,7 +1777,7 @@ function handleRegionClick(region) {
   if (appState.tool === "pick") {
     const picked = previous || "#ffffff";
     appState.color = picked;
-    els.colorPicker.value = picked;
+    syncColorControls();
     markActiveSwatch();
     setTool("fill");
     setStatus(`Picked ${picked}`);
@@ -943,6 +1795,7 @@ function handleRegionClick(region) {
 }
 
 function handleCanvasClick(event, canvas) {
+  if (isDrawingTool()) return;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   const rect = canvas.getBoundingClientRect();
   const x = Math.floor((event.clientX - rect.left) * (canvas.width / rect.width));
@@ -952,7 +1805,7 @@ function handleCanvasClick(event, canvas) {
 
   if (appState.tool === "pick") {
     appState.color = rgbToHex(`rgb(${picked[0]}, ${picked[1]}, ${picked[2]})`);
-    els.colorPicker.value = appState.color;
+    syncColorControls();
     markActiveSwatch();
     setTool("fill");
     setStatus(`Picked ${appState.color}`);
@@ -1050,25 +1903,17 @@ function applyFills() {
 }
 
 function updateProgress() {
-  if (templates[appState.template] && templates[appState.template].type === "image") {
-    els.progressBar.style.width = "100%";
-    els.progressText.textContent = "Image page ready";
-    return;
-  }
-
-  const total = els.artboard.querySelectorAll("[data-region]").length || 1;
-  const filled = [...els.artboard.querySelectorAll("[data-region]")]
-    .filter((region) => appState.fills[regionKey(appState.template, region.dataset.region)]).length;
-  const percent = Math.round((filled / total) * 100);
-  els.progressBar.style.width = `${percent}%`;
-  els.progressText.textContent = `${percent}% filled`;
+  // Progress is intentionally not shown in the UI.
 }
 
 function setTool(tool) {
   appState.tool = tool;
   els.fillTool.classList.toggle("active", tool === "fill");
+  els.drawTool.classList.toggle("active", tool === "draw");
+  els.drawEraseTool.classList.toggle("active", tool === "draw-erase");
   els.eraseTool.classList.toggle("active", tool === "erase");
   els.pickTool.classList.toggle("active", tool === "pick");
+  updateDrawingLayerMode();
 }
 
 function undo() {
@@ -1079,13 +1924,21 @@ function undo() {
   }
 
   if (item.canvas) {
-    const canvas = els.artboard.querySelector("canvas");
+    const canvas = getBaseCanvas();
     if (!canvas) return;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     ctx.putImageData(item.imageData, 0, 0);
     appState.uploadImageData = item.imageData;
     saveUploadedCanvas(true);
     setStatus("Undid last fill");
+    return;
+  }
+
+  if (item.drawing) {
+    appState.drawingSnapshots[item.template] = item.before || "";
+    if (item.template === appState.template) paintDrawingLayerFromDataUrl(item.before || "");
+    broadcast({ type: "drawing-progress", template: item.template, dataUrl: item.before || "" });
+    setStatus("Undid last brush stroke");
     return;
   }
 
@@ -1096,8 +1949,11 @@ function undo() {
 }
 
 function clearColors() {
+  const drawingCanvas = getDrawingCanvas();
+  const drawingBefore = drawingCanvas && appState.drawingSnapshots[appState.template] ? drawingCanvas.toDataURL("image/png") : "";
+
   if (templates[appState.template] && templates[appState.template].type === "image") {
-    const canvas = els.artboard.querySelector("canvas");
+    const canvas = getBaseCanvas();
     if (!canvas || !appState.uploadOriginalData) return;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     const current = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -1105,14 +1961,25 @@ function clearColors() {
     ctx.putImageData(appState.uploadOriginalData, 0, 0);
     appState.uploadImageData = appState.uploadOriginalData;
     saveUploadedCanvas(true);
+    if (drawingBefore) {
+      appState.undoStack.push({ drawing: true, template: appState.template, before: drawingBefore });
+      delete appState.drawingSnapshots[appState.template];
+      clearDrawingLayer();
+      broadcast({ type: "drawing-progress", template: appState.template, dataUrl: "" });
+    }
     setStatus("Cleared uploaded page");
     return;
   }
 
   const keys = Object.keys(appState.fills).filter((key) => key.startsWith(`${appState.template}:`));
-  if (!keys.length) return;
+  if (!keys.length && !drawingBefore) return;
   appState.undoStack.push(...keys.map((key) => ({ key, previous: appState.fills[key], next: "" })));
   keys.forEach((key) => setFill(key, ""));
+  if (drawingBefore) {
+    appState.undoStack.push({ drawing: true, template: appState.template, before: drawingBefore });
+    delete appState.drawingSnapshots[appState.template];
+    clearDrawingLayer();
+  }
   saveDraft(false);
   broadcast({ type: "clear", template: appState.template });
   setStatus("Cleared this template");
@@ -1143,7 +2010,7 @@ function loadDraft() {
 
 function saveUploadedCanvas(shareWithRoom = false, persist = false) {
   const template = templates[appState.template];
-  const canvas = els.artboard.querySelector("canvas");
+  const canvas = getBaseCanvas();
   if (!template || template.type !== "image" || !canvas || !appState.uploadOriginalData) return;
 
   const coloredDataUrl = canvas.toDataURL("image/png");
@@ -1162,7 +2029,7 @@ function saveUploadedCanvas(shareWithRoom = false, persist = false) {
 function queueUploadedProgressSnapshot() {
   clearTimeout(appState.uploadSnapshotTimer);
   appState.uploadSnapshotTimer = setTimeout(() => {
-    const canvas = els.artboard.querySelector("canvas");
+    const canvas = getBaseCanvas();
     if (!canvas || !templates[appState.template] || templates[appState.template].type !== "image") return;
     broadcast({
       type: "upload-progress",
@@ -1193,7 +2060,17 @@ function connectRoom(room) {
     setOnline(true, "Room online");
     const synced = await syncRoomState();
     if (!synced) return;
-    broadcast({ type: "hello", template: appState.template, fills: appState.fills, uploads: currentRoomUploads(), imageSnapshots: currentImageSnapshots() });
+    broadcast({
+      type: "hello",
+      sessionId: appState.sessionId,
+      template: appState.template,
+      fills: appState.fills,
+      uploads: currentRoomUploads(),
+      imageSnapshots: currentImageSnapshots(),
+      drawingSnapshots: currentDrawingSnapshots(),
+      pages: currentRoomPages(),
+      pageOrder: currentRoomPageOrder()
+    });
   });
 
   appState.eventSource.addEventListener("message", (event) => {
@@ -1237,6 +2114,8 @@ function leaveCurrentRoomForMenu() {
 
   resetDraft();
   appState.template = "cozy";
+  appState.currentPageId = "cozy";
+  appState.currentPageIndex = 0;
   appState.uploadImageData = null;
   appState.uploadOriginalData = null;
   appState.roomCreated = false;
@@ -1248,9 +2127,13 @@ function leaveCurrentRoomForMenu() {
 
 async function applyRoomState(state) {
   if (!state) return;
+  if (state.sessionId) appState.sessionId = state.sessionId;
   const hasUploads = state.uploads && Object.keys(state.uploads).length > 0;
   const hasFills = state.fills && Object.keys(state.fills).length > 0;
   const hasImageSnapshots = state.imageSnapshots && Object.keys(state.imageSnapshots).length > 0;
+  const hasDrawingSnapshots = state.drawingSnapshots && Object.keys(state.drawingSnapshots).length > 0;
+
+  mergeRoomPages(state.pages, state.pageOrder);
 
   if (hasUploads) {
     appState.uploads = { ...appState.uploads, ...state.uploads };
@@ -1268,11 +2151,41 @@ async function applyRoomState(state) {
     applyImageSnapshots(state.imageSnapshots);
   }
 
-  if (state.template && templates[state.template] && (state.template !== "cozy" || hasUploads || hasFills || hasImageSnapshots)) {
-    appState.template = state.template;
+  if (hasDrawingSnapshots) {
+    appState.drawingSnapshots = { ...appState.drawingSnapshots, ...state.drawingSnapshots };
   }
 
+  const rememberedPage = getRememberedPage();
+  if (rememberedPage && templates[rememberedPage]) {
+    appState.template = rememberedPage;
+  } else if (state.template && templates[state.template] && (state.template !== "cozy" || hasUploads || hasFills || hasImageSnapshots || hasDrawingSnapshots)) {
+    appState.template = state.template;
+  } else if (!templates[appState.template]) {
+    appState.template = "cozy";
+  }
+
+  appState.currentPageId = appState.template;
+  appState.currentPageIndex = getCurrentPageIndex();
+  pruneUnusedDefaultStarter();
+  appState.currentPageIndex = getCurrentPageIndex();
+  rememberCurrentPage();
   renderTemplate(appState.template);
+}
+
+function mergeRoomPages(pages = {}, pageOrder = []) {
+  const localOrder = [...appState.pageOrder];
+  Object.values(pages || {}).forEach((page) => addPageRecord(page, false));
+  const ordered = [];
+  (Array.isArray(pageOrder) ? pageOrder : []).forEach((id) => {
+    if (appState.pages[id] && !ordered.includes(id)) ordered.push(id);
+  });
+  [...localOrder, ...appState.pageOrder, ...Object.keys(appState.pages)].forEach((id) => {
+    if (appState.pages[id] && !ordered.includes(id)) ordered.push(id);
+  });
+  appState.pageOrder = ordered;
+  pruneUnusedDefaultStarter();
+  rebuildTemplateCatalog();
+  rebuildTemplateOptions();
 }
 
 function applyImageSnapshots(snapshots = {}) {
@@ -1285,6 +2198,7 @@ function applyImageSnapshots(snapshots = {}) {
 
 async function receiveMessage(message) {
   if (message.type === "hello") {
+    mergeRoomPages(message.pages, message.pageOrder);
     if (message.uploads && Object.keys(message.uploads).length) {
       appState.uploads = { ...appState.uploads, ...message.uploads };
       await saveUploads();
@@ -1296,7 +2210,9 @@ async function receiveMessage(message) {
       appState.imageSnapshots = { ...appState.imageSnapshots, ...message.imageSnapshots };
       applyImageSnapshots(message.imageSnapshots);
     }
-    if (message.template && templates[message.template]) appState.template = message.template;
+    if (message.drawingSnapshots && Object.keys(message.drawingSnapshots).length) {
+      appState.drawingSnapshots = { ...appState.drawingSnapshots, ...message.drawingSnapshots };
+    }
     renderTemplate(appState.template);
     if (templates[appState.template] && templates[appState.template].type === "image") {
       await saveUploads();
@@ -1307,9 +2223,23 @@ async function receiveMessage(message) {
   }
 
   if (message.type === "template" && templates[message.template]) {
-    appState.template = message.template;
-    renderTemplate(appState.template);
-    setStatus(`Switched to ${templates[message.template].title}`);
+    ensurePageRecord(message.template);
+    rebuildTemplateOptions();
+    setStatus(`${templates[message.template].title} is available`);
+  }
+
+  if (message.type === "page-add" && message.page && message.page.id) {
+    addPageRecord(message.page);
+    if (message.page.id === appState.template) {
+      els.templateTitle.textContent = getPageTitle(appState.template);
+      els.pageNameInput.value = getPageTitle(appState.template);
+    }
+    setStatus(`${message.page.title || "A room page"} is available`);
+  }
+
+  if (message.type === "page-rename" && message.id && message.title) {
+    applyPageTitle(message.id, message.title, { silent: true });
+    if (message.id === appState.template) setStatus("Page name updated");
   }
 
   if (message.type === "fill") {
@@ -1324,11 +2254,15 @@ async function receiveMessage(message) {
 
   if (message.type === "upload" && message.id && message.page) {
     appState.uploads[message.id] = message.page;
+    addPageRecord({
+      id: message.id,
+      title: message.page.title || "Uploaded Page",
+      type: "image",
+      dataUrl: message.page.dataUrl || ""
+    }, false);
     await saveUploads();
     await loadUploads();
     rebuildTemplateOptions();
-    appState.template = message.id;
-    renderTemplate(appState.template);
     setStatus("A room page was shared");
   }
 
@@ -1337,16 +2271,24 @@ async function receiveMessage(message) {
     if (appState.uploads[message.template]) appState.uploads[message.template].coloredDataUrl = message.coloredDataUrl || "";
     if (templates[message.template]) templates[message.template].coloredDataUrl = message.coloredDataUrl || "";
     if (appState.uploads[message.template]) persistUploads();
-    if (message.reason === "replace" && appState.template === message.template) {
+    if (appState.template === message.template) {
       paintCurrentCanvasFromDataUrl(message.coloredDataUrl);
     }
     setStatus("A friend colored the uploaded page");
   }
 
-  if (message.type === "clear" && message.template === appState.template) {
+  if (message.type === "drawing-progress" && message.template) {
+    appState.drawingSnapshots[message.template] = message.dataUrl || "";
+    if (message.template === appState.template) paintDrawingLayerFromDataUrl(message.dataUrl || "");
+    setStatus("A friend drew on a page");
+  }
+
+  if (message.type === "clear" && message.template) {
     Object.keys(appState.fills)
-      .filter((key) => key.startsWith(`${appState.template}:`))
+      .filter((key) => key.startsWith(`${message.template}:`))
       .forEach((key) => setFill(key, ""));
+    delete appState.drawingSnapshots[message.template];
+    if (message.template === appState.template) clearDrawingLayer();
     saveDraft(false);
     setStatus("Room cleared this template");
   }
@@ -1354,12 +2296,19 @@ async function receiveMessage(message) {
   if (message.type === "delete-upload" && message.template) {
     delete appState.uploads[message.template];
     delete appState.imageSnapshots[message.template];
+    delete appState.drawingSnapshots[message.template];
+    delete appState.pages[message.template];
+    appState.pageOrder = appState.pageOrder.filter((id) => id !== message.template);
     await saveUploads();
     await loadUploads();
     rebuildTemplateOptions();
     if (appState.template === message.template) {
       appState.template = "cozy";
-      resetDraft();
+      appState.currentPageId = appState.template;
+      appState.currentPageIndex = getCurrentPageIndex();
+      rememberCurrentPage();
+      appState.uploadImageData = null;
+      appState.uploadOriginalData = null;
       renderTemplate(appState.template);
     }
     setStatus("A room upload was deleted");
@@ -1369,7 +2318,7 @@ async function receiveMessage(message) {
 function applyRemoteCanvasFill(message) {
   if (message.template !== appState.template) return;
   const template = templates[message.template];
-  const canvas = els.artboard.querySelector("canvas");
+  const canvas = getBaseCanvas();
   if (!template || template.type !== "image" || !canvas || !appState.uploadOriginalData) return;
 
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -1389,7 +2338,7 @@ function applyRemoteCanvasFill(message) {
 }
 
 function paintCurrentCanvasFromDataUrl(dataUrl) {
-  const canvas = els.artboard.querySelector("canvas");
+  const canvas = getBaseCanvas();
   if (!canvas || !dataUrl) return;
 
   const img = new Image();
@@ -1433,14 +2382,7 @@ function setStatus(text) {
 
 function downloadSaveFile() {
   saveDraft(false);
-  const template = templates[appState.template];
-  const payload = {
-    template: appState.template,
-    room: appState.room,
-    fills: appState.fills,
-    upload: template && template.type === "image" ? appState.uploads[appState.template] : null,
-    savedAt: new Date().toISOString()
-  };
+  const payload = buildSessionPayload();
   const blob = new Blob([JSON.stringify({
     ...payload
   }, null, 2)], { type: "application/json" });
@@ -1454,14 +2396,32 @@ function importSaveFile(event) {
   const reader = new FileReader();
   reader.onload = async () => {
     const imported = readJson(reader.result);
-    if (!imported || (!imported.fills && !imported.upload)) {
+    if (!imported || (!imported.fills && !imported.upload && !imported.pages && !imported.uploads)) {
       setStatus("That save file did not load");
       return;
     }
 
-    if (imported.upload && imported.upload.dataUrl) {
+    if (imported.pages || imported.uploads || imported.drawingSnapshots) {
+      const restoredSessionId = imported.sessionId || createSessionId();
+      if (imported.roomCode || imported.room) setRoom(imported.roomCode || imported.room);
+      appState.sessionId = restoredSessionId;
+      appState.fills = imported.fills || {};
+      appState.imageSnapshots = imported.imageSnapshots || {};
+      appState.drawingSnapshots = imported.drawingSnapshots || {};
+      appState.pages = imported.pages || {};
+      appState.pageOrder = Array.isArray(imported.pageOrder) ? imported.pageOrder : Object.keys(appState.pages);
+      appState.uploads = { ...appState.uploads, ...(imported.uploads || {}) };
+      await saveUploads();
+      await loadUploads();
+      mergeRoomPages(appState.pages, appState.pageOrder);
+      const importedIds = getRoomPageIds();
+      const indexedPage = importedIds[Number(imported.currentPageIndex) || 0];
+      const nextPage = imported.currentPageId || imported.template || indexedPage || "cozy";
+      if (templates[nextPage]) appState.template = nextPage;
+    } else if (imported.upload && imported.upload.dataUrl) {
       const id = imported.template && imported.template.startsWith("upload-") ? imported.template : `upload-${Date.now()}`;
       appState.uploads[id] = imported.upload;
+      addPageRecord({ id, title: imported.upload.title || "Uploaded Page", type: "image", dataUrl: imported.upload.dataUrl }, false);
       await saveUploads();
       await loadUploads();
       rebuildTemplateOptions();
@@ -1471,14 +2431,28 @@ function importSaveFile(event) {
       if (templates[imported.template]) appState.template = imported.template;
     }
 
+    appState.currentPageId = appState.template;
+    appState.currentPageIndex = getCurrentPageIndex();
+    rememberCurrentPage();
     renderTemplate(appState.template);
     saveDraft(false);
+    await saveLocalSession();
     if (await ensureCurrentRoom()) {
       const importedTemplate = templates[appState.template];
       if (importedTemplate && importedTemplate.type === "image") {
         await broadcast({ type: "upload", id: appState.template, page: appState.uploads[appState.template] });
       }
-      broadcast({ type: "hello", template: appState.template, fills: appState.fills, uploads: currentRoomUploads(), imageSnapshots: currentImageSnapshots() });
+      broadcast({
+        type: "hello",
+        sessionId: appState.sessionId,
+        template: appState.template,
+        fills: appState.fills,
+        uploads: currentRoomUploads(),
+        imageSnapshots: currentImageSnapshots(),
+        drawingSnapshots: currentDrawingSnapshots(),
+        pages: currentRoomPages(),
+        pageOrder: currentRoomPageOrder()
+      });
     }
     setStatus("Save file imported");
   };
@@ -1507,17 +2481,26 @@ async function importColoringPage(event) {
       dataUrl,
       coloredDataUrl: ""
     };
+    const pageRecord = { id, title, type: "image", dataUrl };
+    if (canUseAsSingleStarter(id)) {
+      setSingleStarterPage(pageRecord);
+    } else {
+      addPageRecord(pageRecord, false);
+    }
     els.customUploadStatus.textContent = "Saving upload...";
     if (!(await saveUploads())) {
       delete appState.uploads[id];
+      delete appState.pages[id];
+      appState.pageOrder = appState.pageOrder.filter((pageId) => pageId !== id);
       return;
     }
 
     await loadUploads();
     rebuildTemplateOptions();
-    appState.template = id;
+    await choosePage(id);
     els.customUploadStatus.textContent = "Upload saved. Opening coloring page...";
     if (await ensureCurrentRoom()) {
+      await broadcast({ type: "page-add", page: appState.pages[id] || pageRecordFromTemplate(id) });
       await broadcast({ type: "upload", id, page: appState.uploads[id] });
     }
     showWorkspace(true);
@@ -1529,6 +2512,27 @@ async function importColoringPage(event) {
     if (event.target !== els.customUploadPageInput) els.customUploadPageInput.value = "";
     if (event.target !== els.uploadPageInput) els.uploadPageInput.value = "";
   }
+}
+
+async function createBlankDrawingPage() {
+  const id = `drawing-${Date.now()}`;
+  const count = Object.values(appState.pages).filter((page) => page.type === "drawing").length + 1;
+  const page = {
+    id,
+    title: `Blank Drawing ${count}`,
+    type: "drawing",
+    createdAt: new Date().toISOString()
+  };
+  if (canUseAsSingleStarter(id)) {
+    setSingleStarterPage(page);
+    rebuildTemplateCatalog();
+    rebuildTemplateOptions();
+  } else {
+    addPageRecord(page);
+  }
+  await choosePage(id);
+  if (await ensureCurrentRoom()) await broadcast({ type: "page-add", page });
+  setStatus("Blank drawing page added");
 }
 
 async function prepareUploadDataUrl(dataUrl) {
@@ -1595,34 +2599,50 @@ function drawImageToDataUrl(img, maxDimension, type, quality) {
 
 async function deleteUploadedPage() {
   const template = templates[appState.template];
-  if (!template || template.type !== "image") {
+  if (!template || template.type !== "image" || !appState.uploads[appState.template] || !appState.template.startsWith("upload-")) {
     setStatus("Choose an uploaded page first");
     return;
   }
 
   const deletedTemplate = appState.template;
   delete appState.uploads[appState.template];
+  delete appState.pages[appState.template];
+  appState.pageOrder = appState.pageOrder.filter((id) => id !== appState.template);
+  delete appState.drawingSnapshots[appState.template];
   await saveUploads();
   await loadUploads();
   appState.template = "cozy";
+  appState.currentPageId = appState.template;
+  appState.currentPageIndex = getCurrentPageIndex();
+  rememberCurrentPage();
   rebuildTemplateOptions();
-  resetDraft();
+  appState.uploadImageData = null;
+  appState.uploadOriginalData = null;
   renderTemplate(appState.template);
   broadcast({ type: "delete-upload", template: deletedTemplate });
   setStatus("Uploaded page deleted");
 }
 
 function downloadPng() {
-  const canvas = els.artboard.querySelector("canvas");
-  if (canvas) {
-    canvas.toBlob((blob) => {
+  const baseCanvas = getBaseCanvas();
+  const drawingCanvas = getDrawingCanvas();
+  if (baseCanvas) {
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = baseCanvas.width;
+    exportCanvas.height = baseCanvas.height;
+    const ctx = exportCanvas.getContext("2d");
+    ctx.drawImage(baseCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
+    if (drawingCanvas) ctx.drawImage(drawingCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
+    exportCanvas.toBlob((blob) => {
       downloadBlob(blob, `jillian-coloring-${appState.template}.png`);
       setStatus("PNG downloaded");
     }, "image/png");
     return;
   }
 
-  const svg = els.artboard.querySelector("svg").cloneNode(true);
+  const svgNode = els.artboard.querySelector("svg");
+  if (!svgNode) return;
+  const svg = svgNode.cloneNode(true);
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   const data = new XMLSerializer().serializeToString(svg);
   const img = new Image();
@@ -1636,6 +2656,7 @@ function downloadPng() {
     ctx.fillStyle = "#fffaf2";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    if (drawingCanvas) ctx.drawImage(drawingCanvas, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((blob) => {
       URL.revokeObjectURL(url);
       downloadBlob(blob, `color-together-${appState.template}.png`);

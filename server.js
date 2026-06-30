@@ -11,6 +11,7 @@ const savedRoomsPath = path.join(dataDir, "rooms.json");
 const rooms = new Map();
 const roomStates = new Map();
 const unsavedRoomTtlMs = 30 * 60 * 1000;
+const maxBodyLength = 50000000;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -18,6 +19,9 @@ const mimeTypes = {
   ".js": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
   ".svg": "image/svg+xml; charset=utf-8"
 };
 
@@ -188,10 +192,14 @@ function createRoomState(room, initial = {}) {
   let state = roomStates.get(room);
   if (!state) {
     state = {
+      sessionId: initial.sessionId || createSessionId(),
       template: initial.template || "cozy",
       fills: initial.fills || {},
       uploads: initial.uploads || {},
       imageSnapshots: initial.imageSnapshots || {},
+      drawingSnapshots: initial.drawingSnapshots || {},
+      pages: initial.pages || {},
+      pageOrder: Array.isArray(initial.pageOrder) ? initial.pageOrder : [],
       saved: false,
       dirty: true,
       savedSnapshot: null,
@@ -214,12 +222,17 @@ function updateRoomState(room, message) {
   if (!state) return false;
   state.lastActive = Date.now();
   if (!state.imageSnapshots) state.imageSnapshots = {};
+  if (!state.drawingSnapshots) state.drawingSnapshots = {};
+  if (!state.pages) state.pages = {};
+  if (!Array.isArray(state.pageOrder)) state.pageOrder = [];
 
   if (message.type === "hello") {
-    state.template = message.template || state.template;
+    state.sessionId = message.sessionId || state.sessionId;
     state.fills = { ...state.fills, ...(message.fills || {}) };
     state.uploads = { ...state.uploads, ...(message.uploads || {}) };
     state.imageSnapshots = { ...state.imageSnapshots, ...(message.imageSnapshots || {}) };
+    state.drawingSnapshots = { ...state.drawingSnapshots, ...(message.drawingSnapshots || {}) };
+    mergePages(state, message.pages, message.pageOrder);
     state.dirty = true;
   }
 
@@ -239,30 +252,54 @@ function updateRoomState(room, message) {
     Object.keys(state.fills)
       .filter((key) => key.startsWith(`${message.template}:`))
       .forEach((key) => delete state.fills[key]);
+    delete state.drawingSnapshots[message.template];
     state.dirty = true;
   }
 
   if (message.type === "upload" && message.id && message.page) {
     state.uploads[message.id] = message.page;
-    state.template = message.id;
+    addPage(state, {
+      id: message.id,
+      title: message.page.title || "Uploaded Page",
+      type: "image",
+      dataUrl: message.page.dataUrl || ""
+    });
     state.dirty = true;
   }
 
   if (message.type === "upload-progress" && message.template) {
     state.imageSnapshots[message.template] = message.coloredDataUrl || "";
     if (state.uploads[message.template]) state.uploads[message.template].coloredDataUrl = message.coloredDataUrl || "";
-    state.template = message.template;
     state.dirty = true;
   }
 
   if (message.type === "canvas-fill" && message.template) {
-    state.template = message.template;
+    state.dirty = true;
+  }
+
+  if (message.type === "page-add" && message.page && message.page.id) {
+    addPage(state, message.page);
+    state.dirty = true;
+  }
+
+  if (message.type === "page-rename" && message.id && message.title) {
+    const id = String(message.id).slice(0, 120);
+    if (state.pages[id]) state.pages[id].title = String(message.title).trim().slice(0, 80) || state.pages[id].title;
+    if (state.uploads[id]) state.uploads[id].title = String(message.title).trim().slice(0, 80) || state.uploads[id].title;
+    state.dirty = true;
+  }
+
+  if (message.type === "drawing-progress" && message.template) {
+    state.drawingSnapshots[message.template] = message.dataUrl || "";
     state.dirty = true;
   }
 
   if (message.type === "delete-upload" && message.template) {
     delete state.uploads[message.template];
     delete state.imageSnapshots[message.template];
+    delete state.drawingSnapshots[message.template];
+    delete state.pages[message.template];
+    state.pageOrder = state.pageOrder.filter((id) => id !== message.template);
     if (state.template === message.template) state.template = "cozy";
     state.dirty = true;
   }
@@ -270,32 +307,45 @@ function updateRoomState(room, message) {
   return true;
 }
 
+function addPage(state, page) {
+  if (!page || !page.id) return;
+  const id = String(page.id).slice(0, 120);
+  state.pages[id] = {
+    ...state.pages[id],
+    ...page,
+    id
+  };
+  if (!state.pageOrder.includes(id)) state.pageOrder.push(id);
+}
+
+function mergePages(state, pages = {}, pageOrder = []) {
+  const localOrder = [...state.pageOrder];
+  Object.values(pages || {}).forEach((page) => addPage(state, page));
+  const ordered = [];
+  (Array.isArray(pageOrder) ? pageOrder : []).forEach((id) => {
+    if (state.pages[id] && !ordered.includes(id)) ordered.push(id);
+  });
+  [...localOrder, ...state.pageOrder, ...Object.keys(state.pages)].forEach((id) => {
+    if (state.pages[id] && !ordered.includes(id)) ordered.push(id);
+  });
+  state.pageOrder = ordered;
+}
+
 function roomSnapshot(state) {
   return {
+    sessionId: state.sessionId || "",
     template: state.template || "cozy",
     fills: state.fills || {},
     uploads: state.uploads || {},
-    imageSnapshots: state.imageSnapshots || {}
+    imageSnapshots: state.imageSnapshots || {},
+    drawingSnapshots: state.drawingSnapshots || {},
+    pages: state.pages || {},
+    pageOrder: Array.isArray(state.pageOrder) ? state.pageOrder : []
   };
 }
 
 function settleInactiveRoom(room) {
-  const state = roomStates.get(room);
-  if (!state) return;
-
-  if (!state.saved) {
-    roomStates.delete(room);
-    return;
-  }
-
-  if (state.savedSnapshot) {
-    const snapshot = cloneJson(state.savedSnapshot);
-    state.template = snapshot.template || "cozy";
-    state.fills = snapshot.fills || {};
-    state.uploads = snapshot.uploads || {};
-    state.imageSnapshots = snapshot.imageSnapshots || {};
-    state.dirty = false;
-  }
+  roomStates.delete(room);
 }
 
 function cloneJson(value) {
@@ -307,42 +357,30 @@ function loadSavedRooms() {
 
   try {
     const parsed = JSON.parse(fs.readFileSync(savedRoomsPath, "utf8"));
-    const savedRooms = parsed.rooms || {};
-    Object.entries(savedRooms).forEach(([room, snapshot]) => {
-      const cleanRoom = sanitizeRoom(room);
-      if (!cleanRoom || !snapshot) return;
-      const cleanSnapshot = {
-        template: snapshot.template || "cozy",
-        fills: snapshot.fills || {},
-        uploads: snapshot.uploads || {},
-        imageSnapshots: snapshot.imageSnapshots || {}
-      };
-      roomStates.set(cleanRoom, {
-        ...cloneJson(cleanSnapshot),
-        saved: true,
-        dirty: false,
-        savedSnapshot: cloneJson(cleanSnapshot),
-        lastActive: Date.now()
-      });
-    });
-    console.log(`Loaded ${roomStates.size} saved room${roomStates.size === 1 ? "" : "s"}.`);
+    const count = Object.keys(parsed.sessions || parsed.rooms || {}).length;
+    if (count) console.log(`Found ${count} saved session${count === 1 ? "" : "s"}; browsers restore them from Art Room.`);
   } catch (error) {
     console.warn(`Could not load saved rooms: ${error.message}`);
   }
 }
 
 function persistSavedRooms() {
-  const savedRooms = {};
+  const savedSessions = {};
   roomStates.forEach((state, room) => {
     if (!state.saved) return;
-    savedRooms[room] = cloneJson(state.savedSnapshot || roomSnapshot(state));
+    const sessionId = state.sessionId || createSessionId();
+    savedSessions[sessionId] = {
+      ...cloneJson(state.savedSnapshot || roomSnapshot(state)),
+      roomCode: room,
+      sessionId
+    };
   });
 
   try {
     fs.mkdirSync(dataDir, { recursive: true });
     fs.writeFileSync(savedRoomsPath, JSON.stringify({
       savedAt: new Date().toISOString(),
-      rooms: savedRooms
+      sessions: savedSessions
     }, null, 2));
   } catch (error) {
     console.warn(`Could not persist saved rooms: ${error.message}`);
@@ -376,7 +414,7 @@ function readBody(req) {
     req.setEncoding("utf8");
     req.on("data", (chunk) => {
       body += chunk;
-      if (body.length > 20000000) {
+      if (body.length > maxBodyLength) {
         req.destroy();
         reject(new Error("Request too large"));
       }
@@ -392,6 +430,10 @@ function sanitizeRoom(value) {
 
 function sanitizeClient(value) {
   return String(value || "").replace(/[^a-z0-9-]/gi, "").slice(0, 80);
+}
+
+function createSessionId() {
+  return `session-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function send(res, status, body) {
